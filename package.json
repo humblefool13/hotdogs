@@ -1,0 +1,27 @@
+{
+  "name": "hotdogs-registry",
+  "version": "1.0.0",
+  "description": "Secure HotDogs Domain Name Service Smart Contract",
+  "main": "index.js",
+  "scripts": {
+    "test": "hardhat test",
+    "compile": "hardhat compile",
+    "deploy": "hardhat run scripts/deploy.js --network sepolia",
+    "deploy:local": "hardhat run scripts/deploy.js --network localhost"
+  },
+  "keywords": [
+    "solidity",
+    "smart-contracts",
+    "domain-names",
+    "nft"
+  ],
+  "author": "humblefool13",
+  "license": "MIT",
+  "devDependencies": {
+    "@nomicfoundation/hardhat-toolbox": "^4.0.0",
+    "hardhat": "^2.19.0"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "^5.0.0"
+  }
+}
