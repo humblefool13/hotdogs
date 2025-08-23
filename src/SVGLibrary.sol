@@ -1,30 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import "./DomainUtils.sol";
-
 /**
- * @title SVGBuilder
- * @dev Library for building SVG graphics for domain NFTs
+ * @title SVGLibrary
+ * @notice SVG generation library for HotDogs Naming Service NFTs
+ * @dev Deployed once and shared across all TLD contracts
  */
-library SVGBuilder {
-    using DomainUtils for string;
-
-    /// @notice Builds the complete SVG for a domain NFT
-    function buildSVG(
-        string memory fullDomain
-    ) internal pure returns (string memory) {
-        // Split domain into name and TLD
-        string[] memory parts = DomainUtils.splitDomain(fullDomain);
-        string memory domainName = parts[0];
-        string memory tld = parts[1];
-
+contract SVGLibrary {
+    /**
+     * @notice Generate SVG for domain NFT
+     * @param name Domain name
+     * @param tld Top-level domain
+     * @return SVG string
+     */
+    function generateSVG(
+        string memory name,
+        string memory tld
+    ) external pure returns (string memory) {
         return
             string(
                 abi.encodePacked(
                     '<?xml version="1.0" encoding="UTF-8"?>',
                     '<svg id="katman_1" xmlns="http://www.w3.org/2000/svg" version="1.1" xmlns:xlink="http://www.w3.org/1999/xlink" viewBox="0 0 270 270">',
-                    "<!-- Generator: Adobe Illustrator 29.5.1, SVG Export Plug-In . SVG Version: 2.1.0 Build 141)  -->",
                     "<defs>",
                     "<style>",
                     ".st0, .st1 { fill: #1a0f0e; }",
@@ -48,7 +45,7 @@ library SVGBuilder {
                     "</defs>",
                     '<rect class="st8" y="0" width="270" height="270"/>',
                     '<text class="st0" transform="translate(32.5 200)"><tspan x="0" y="0">',
-                    domainName,
+                    name,
                     "</tspan></text>",
                     "<g>",
                     '<rect class="st1" x="63.4" y="73.7" width="5.2" height="2.6"/>',
@@ -70,7 +67,7 @@ library SVGBuilder {
                     '<rect class="st7" x="50.3" y="63.2" width="2.6" height="2.6"/>',
                     '<rect class="st1" x="47.7" y="63.2" width="2.6" height="5.2"/>',
                     '<polygon class="st12" points="47.7 63.2 39.9 63.2 39.9 58 37.2 58 37.2 47.5 34.6 47.5 34.6 63.2 37.2 63.2 37.2 68.5 39.9 68.5 39.9 71.1 45.1 71.1 45.1 68.5 47.7 68.5 47.7 63.2"/>',
-                    '<rect class="st1" x="34.6" y="63.2" width="2.6" height="5.2"/>',
+                    '<rect class="st1" x="34.6" y="63.2" width="2.6" height="2.6"/>',
                     '<rect class="st7" x="47.7" y="60.6" width="2.6" height="2.6"/>',
                     '<rect class="st1" x="32" y="47.5" width="2.6" height="15.7"/>',
                     '<polygon class="st12" points="76.5 65.8 73.9 65.8 73.9 68.5 79.2 68.5 79.2 58 76.5 58 76.5 65.8"/>',
@@ -91,7 +88,7 @@ library SVGBuilder {
                     '<rect class="st1" x="76.5" y="42.3" width="2.6" height="5.2"/>',
                     '<polygon class="st1" points="55.6 47.5 55.6 52.7 53 52.7 53 55.4 58.2 55.4 58.2 44.9 53 44.9 53 47.5 55.6 47.5"/>',
                     '<polygon class="st6" points="37.2 58 39.9 58 39.9 63.2 45.1 63.2 45.1 58 42.5 58 42.5 44.9 45.1 44.9 45.1 39.6 39.9 39.6 39.9 42.3 37.2 42.3 37.2 58"/>',
-                    '<rect class="st1" x="34.6" y="42.3" width="2.6" height="5.2"/>',
+                    '<rect class="st1" x="34.6" y="42.3" width="2.6" height="2.6"/>',
                     '<rect class="st12" x="73.9" y="42.3" width="2.6" height="2.6"/>',
                     '<rect class="st1" x="45.1" y="42.3" width="2.6" height="2.6"/>',
                     '<rect class="st1" x="73.9" y="39.6" width="2.6" height="2.6"/>',

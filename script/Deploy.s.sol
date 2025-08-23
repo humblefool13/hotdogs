@@ -2,30 +2,25 @@
 pragma solidity ^0.8.20;
 
 import "forge-std/Script.sol";
-import "../src/HotDogs.sol";
+import "../src/HNSManager.sol";
 
-/**
- * @title HotDogsRegistry Deployment Script
- * @dev Deploys HotDogsRegistry contract to testnet
- */
 contract DeployScript is Script {
     function run() external {
-        vm.createSelectFork("sepolia");
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        address deployer = vm.addr(deployerPrivateKey);
 
         vm.startBroadcast(deployerPrivateKey);
 
-        // Deploy HotDogsRegistry
-        HotDogsRegistry registry = new HotDogsRegistry();
+        // Deploy HNSManager
+        HNSManager manager = new HNSManager();
 
-        // Register a test domain for verification (optional)
-        string memory testDomain = "deployment-test.hotdogs";
-        uint256 price = registry.getDomainPrice(testDomain);
+        console.log("HNSManager deployed at:", address(manager));
+        console.log("SVG Library deployed at:", manager.svgLibrary());
 
-        if (deployer.balance >= price) {
-            registry.registerDomain{value: price}(testDomain, 1);
-        }
+        // Add default TLDs
+        manager.addTLD("hotdogs");
+        manager.addTLD("rise");
+
+        console.log("Default TLDs added: hotdogs, rise");
 
         vm.stopBroadcast();
     }
