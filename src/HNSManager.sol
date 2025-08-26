@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./NameService.sol";
 import "./SVGLibrary.sol";
 
@@ -11,7 +12,7 @@ import "./SVGLibrary.sol";
  * @notice Central manager contract for the HotDogs Naming Service system
  * @dev Manages TLD deployments and provides unified resolution interface
  */
-contract HNSManager is Ownable {
+contract HNSManager is Ownable, ReentrancyGuard {
     using Address for address payable;
 
     /// @notice Mapping of TLD to deployed NameService contract address
@@ -70,7 +71,7 @@ contract HNSManager is Ownable {
      * @param tld The top-level domain to add
      * @dev Only callable by owner
      */
-    function addTLD(string calldata tld) external onlyOwner {
+    function addTLD(string calldata tld) external onlyOwner nonReentrant {
         if (bytes(tld).length == 0) revert InvalidTLD(tld);
         if (tldContracts[tld] != address(0)) revert TLDAlreadyExists(tld);
 
@@ -91,7 +92,7 @@ contract HNSManager is Ownable {
      * @param tld The top-level domain to remove
      * @dev Only callable by owner
      */
-    function removeTLD(string calldata tld) external onlyOwner {
+    function removeTLD(string calldata tld) external onlyOwner nonReentrant {
         if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
 
         // Clear the mapping
@@ -113,7 +114,7 @@ contract HNSManager is Ownable {
      * @notice Withdraw all accumulated fees from the contract
      * @dev Only callable by owner
      */
-    function withdrawFunds() external onlyOwner {
+    function withdrawFunds() external onlyOwner nonReentrant {
         uint256 amount = address(this).balance;
         require(amount > 0, "No funds to withdraw");
 
@@ -128,7 +129,7 @@ contract HNSManager is Ownable {
      * @param domain Full domain (name.tld)
      * @dev Only callable by domain owner
      */
-    function setMainDomain(string calldata domain) external {
+    function setMainDomain(string calldata domain) external nonReentrant {
         // Parse domain to get TLD
         string memory tld = _extractTLD(domain);
         if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
@@ -333,7 +334,7 @@ contract HNSManager is Ownable {
     function addDomainToAddress(
         address owner,
         string calldata domain
-    ) external {
+    ) external nonReentrant {
         // Verify caller is a valid NameService contract
         bool isValidContract = false;
         for (uint i = 0; i < registeredTLDs.length; i++) {
@@ -362,7 +363,7 @@ contract HNSManager is Ownable {
     function removeDomainFromAddress(
         address owner,
         string calldata domain
-    ) external {
+    ) external nonReentrant {
         // Verify caller is a valid NameService contract
         bool isValidContract = false;
         for (uint i = 0; i < registeredTLDs.length; i++) {
@@ -403,7 +404,7 @@ contract HNSManager is Ownable {
     function clearMainDomainIfNeeded(
         address owner,
         string calldata domain
-    ) external {
+    ) external nonReentrant {
         // Verify caller is a valid NameService contract
         bool isValidContract = false;
         for (uint i = 0; i < registeredTLDs.length; i++) {

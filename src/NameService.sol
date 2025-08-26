@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
+import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./SVGLibrary.sol";
 
 /**
@@ -12,7 +13,7 @@ import "./SVGLibrary.sol";
  * @notice Individual TLD contract for the HotDogs Naming Service system
  * @dev Handles domain registrations, NFTs, and domain management for a specific TLD
  */
-contract NameService is ERC721URIStorage {
+contract NameService is ERC721URIStorage, ReentrancyGuard {
     using Strings for uint256;
 
     uint256 public constant PRICE_3_CHAR = 0.012 ether;
@@ -87,7 +88,7 @@ contract NameService is ERC721URIStorage {
     function register(
         string calldata name,
         uint256 yearsToRegister
-    ) external payable {
+    ) external payable nonReentrant {
         if (!_isValidName(name)) revert InvalidName(name);
         if (domains[name].owner != address(0))
             revert DomainAlreadyRegistered(name);
@@ -129,7 +130,7 @@ contract NameService is ERC721URIStorage {
     function renew(
         string calldata name,
         uint256 yearsToRenew
-    ) external payable {
+    ) external payable nonReentrant {
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender) revert Unauthorized();
@@ -147,7 +148,10 @@ contract NameService is ERC721URIStorage {
         emit DomainRenewed(name, msg.sender, domain.expiration);
     }
 
-    function transferDomain(string calldata name, address to) external {
+    function transferDomain(
+        string calldata name,
+        address to
+    ) external nonReentrant {
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender) revert Unauthorized();
@@ -250,7 +254,7 @@ contract NameService is ERC721URIStorage {
      * @notice Check and burn expired domains
      * @dev Can be called by anyone to clean up expired domains
      */
-    function checkAndBurnExpiredDomains() external {
+    function checkAndBurnExpiredDomains() external nonReentrant {
         uint256 totalDomains = allDomains.length;
         uint256 i = 0;
 
@@ -318,9 +322,6 @@ contract NameService is ERC721URIStorage {
         // Get the from address before the transfer
         address from = _ownerOf(tokenId);
 
-        // Call parent logic (actually performs the transfer/mint/burn)
-        address result = super._update(to, tokenId, auth);
-
         // If this is a transfer (not a mint or burn), update domain ownership
         if (from != address(0) && to != address(0) && bytes(name).length > 0) {
             // Update local domain ownership
@@ -337,6 +338,8 @@ contract NameService is ERC721URIStorage {
             IHNSManager(hnsManager).addDomainToAddress(to, fullDomain);
         }
 
+        // Call parent logic (actually performs the transfer/mint/burn)
+        address result = super._update(to, tokenId, auth);
         return result;
     }
 
