@@ -7,14 +7,17 @@ import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./SVGLibrary.sol";
+import "./MinHeap.sol";
 
 /**
  * @title NameService
  * @notice Individual TLD contract for the HotDogs Naming Service system
  * @dev Handles domain registrations, NFTs, and domain management for a specific TLD
+ * @dev Optimized with MinHeap for efficient expiration management and domainToIndex for O(1) array removal
  */
 contract NameService is ERC721URIStorage, ReentrancyGuard {
     using Strings for uint256;
+    using MinHeap for MinHeap.Heap;
 
     uint256 public constant PRICE_3_CHAR = 0.012 ether;
     uint256 public constant PRICE_4_CHAR = 0.01 ether;
@@ -42,6 +45,12 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
     mapping(uint256 => string) public tokenToDomain;
     mapping(string => uint256) public domainToToken;
     string[] public allDomains;
+
+    // Gas optimization: MinHeap for efficient expiration management
+    MinHeap.Heap private expirationHeap;
+
+    // Gas optimization: O(1) index lookup for allDomains removal
+    mapping(string => uint256) private domainToIndex; // Maps domain to allDomains index (1-based)
 
     event DomainRegistered(
         string indexed name,
@@ -116,7 +125,13 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
         domains[name] = domainInfo;
         tokenToDomain[tokenId] = name;
         domainToToken[name] = tokenId;
+
+        // Gas optimization: Add to allDomains with index tracking
         allDomains.push(name);
+        domainToIndex[name] = allDomains.length; // 1-based indexing
+
+        // Gas optimization: Add to expiration heap for efficient management
+        expirationHeap.insert(name, expiration);
 
         // Add to manager's address mapping
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
@@ -142,6 +157,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
 
         domain.expiration = domain.expiration + (yearsToRenew * 365 days);
         domain.renewalCount++;
+
+        // Gas optimization: Update expiration in heap
+        expirationHeap.updateExpiration(name, domain.expiration);
 
         _distributeFees(msg.value);
 
@@ -251,53 +269,54 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
     }
 
     /**
-     * @notice Check and burn expired domains
-     * @dev Can be called by anyone to clean up expired domains
+     * @notice Check and burn expired domains using optimized heap-based approach
+     * @dev Gas optimization: O(k log n) instead of O(n) where k is expired domains
+     * @dev Only processes actually expired domains instead of scanning entire array
      */
     function checkAndBurnExpiredDomains() external nonReentrant {
-        uint256 totalDomains = allDomains.length;
-        uint256 i = 0;
+        // Gas optimization: Process only expired domains using heap
+        while (expirationHeap.size() > 0) {
+            (string memory name, uint256 expiration) = expirationHeap.getMin();
 
-        while (i < totalDomains) {
-            string memory name = allDomains[i];
+            // If earliest expiration is in future, no more expired domains
+            if (expiration >= block.timestamp) break;
+
+            // Pop and process expired domain
+            (name, ) = expirationHeap.popMin();
             DomainInfo storage domain = domains[name];
 
-            if (
-                domain.owner != address(0) &&
-                domain.expiration < block.timestamp
-            ) {
-                // Domain is expired, burn it
-                uint256 tokenId = domainToToken[name];
-                address previousOwner = domain.owner;
+            // Skip if already processed
+            if (domain.owner == address(0)) continue;
 
-                // Burn the NFT
-                _burn(tokenId);
+            uint256 tokenId = domainToToken[name];
+            address previousOwner = domain.owner;
 
-                // Clear domain info
-                delete domains[name];
-                delete tokenToDomain[tokenId];
-                delete domainToToken[name];
+            // Burn the NFT
+            _burn(tokenId);
 
-                // Remove from allDomains array (swap with last element and pop)
-                allDomains[i] = allDomains[totalDomains - 1];
+            // Clear domain info
+            delete domains[name];
+            delete tokenToDomain[tokenId];
+            delete domainToToken[name];
+
+            // Gas optimization: O(1) removal from allDomains using domainToIndex
+            uint256 index = domainToIndex[name];
+            if (index > 0) {
+                index -= 1; // Convert to 0-based
+                allDomains[index] = allDomains[allDomains.length - 1];
+                domainToIndex[allDomains[index]] = index + 1;
                 allDomains.pop();
-                totalDomains--;
-
-                // Remove from manager's address mapping
-                string memory fullDomain = string(
-                    abi.encodePacked(name, ".", tld)
-                );
-                IHNSManager(hnsManager).removeDomainFromAddress(
-                    previousOwner,
-                    fullDomain
-                );
-
-                emit DomainExpired(name, previousOwner);
-
-                // Don't increment i since we swapped elements
-            } else {
-                i++;
+                delete domainToIndex[name];
             }
+
+            // Remove from manager's address mapping
+            string memory fullDomain = string(abi.encodePacked(name, ".", tld));
+            IHNSManager(hnsManager).removeDomainFromAddress(
+                previousOwner,
+                fullDomain
+            );
+
+            emit DomainExpired(name, previousOwner);
         }
     }
 
@@ -336,6 +355,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
             // Remove from old owner and add to new owner
             IHNSManager(hnsManager).removeDomainFromAddress(from, fullDomain);
             IHNSManager(hnsManager).addDomainToAddress(to, fullDomain);
+        } else if (to == address(0) && bytes(name).length > 0) {
+            // Burn case - remove from heap
+            expirationHeap.remove(name);
         }
 
         // Call parent logic (actually performs the transfer/mint/burn)
@@ -521,6 +543,32 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
             domain.registrationDate,
             domain.renewalCount
         );
+    }
+
+    /**
+     * @notice Get the next domain that will expire
+     * @dev Gas optimization: O(1) access to earliest expiration
+     * @return domain The domain name
+     * @return expiration The expiration timestamp
+     */
+    function getNextExpiringDomain()
+        external
+        view
+        returns (string memory domain, uint256 expiration)
+    {
+        if (expirationHeap.size() > 0) {
+            return expirationHeap.getMin();
+        }
+        return ("", 0);
+    }
+
+    /**
+     * @notice Get the total number of domains in the expiration heap
+     * @dev Useful for monitoring and debugging
+     * @return The number of domains tracked for expiration
+     */
+    function getExpirationHeapSize() external view returns (uint256) {
+        return expirationHeap.size();
     }
 }
 
