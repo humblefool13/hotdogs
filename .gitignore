@@ -22,3 +22,6 @@ broadcast/*
 
 hoodedDomains.sol
 .gitignore
+
+
+*.t.sol

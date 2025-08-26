@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "./NameService.sol";
 import "./SVGLibrary.sol";
+import "./DomainUtils.sol";
 
 /**
  * @title HotDogsNamingService
@@ -14,6 +15,7 @@ import "./SVGLibrary.sol";
  */
 contract HNSManager is Ownable, ReentrancyGuard {
     using Address for address payable;
+    using DomainUtils for string;
 
     /// @notice Mapping of TLD to deployed NameService contract address
     mapping(string => address) public tldContracts;
@@ -93,31 +95,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Remove a TLD and clear its contract mapping
-     * @param tld The top-level domain to remove
-     * @dev Only callable by owner
-     */
-    function removeTLD(string calldata tld) external onlyOwner nonReentrant {
-        if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
-
-        // Clear the mapping
-        address contractAddress = tldContracts[tld];
-        validNameServiceContracts[contractAddress] = false;
-        delete tldContracts[tld];
-
-        // Remove from array
-        for (uint i = 0; i < registeredTLDs.length; i++) {
-            if (keccak256(bytes(registeredTLDs[i])) == keccak256(bytes(tld))) {
-                registeredTLDs[i] = registeredTLDs[registeredTLDs.length - 1];
-                registeredTLDs.pop();
-                break;
-            }
-        }
-
-        emit TLDRemoved(tld);
-    }
-
-    /**
      * @notice Withdraw all accumulated fees from the contract
      * @dev Only callable by owner
      */
@@ -138,37 +115,17 @@ contract HNSManager is Ownable, ReentrancyGuard {
      */
     function setMainDomain(string calldata domain) external nonReentrant {
         // Parse domain to get TLD
-        string memory tld = _extractTLD(domain);
+        string memory tld = domain.extractTLD();
         if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
 
         // Check if caller owns the domain
-        string memory name = _extractName(domain);
+        string memory name = domain.extractName();
         NameService nameService = NameService(tldContracts[tld]);
         if (nameService.getDomainOwner(name) != msg.sender)
             revert DomainNotFound();
 
         mainDomain[msg.sender] = domain;
         emit MainDomainSet(msg.sender, domain);
-    }
-
-    /**
-     * @notice Get main domain for an address
-     * @param addr Address to lookup
-     * @return Main domain string
-     */
-    function getMainDomain(address addr) external view returns (string memory) {
-        return mainDomain[addr];
-    }
-
-    /**
-     * @notice Get all domains owned by an address across all TLDs
-     * @param addr Address to lookup
-     * @return Array of all domain names
-     */
-    function getAllDomainsByOwner(
-        address addr
-    ) external view returns (string[] memory) {
-        return addressToDomains[addr];
     }
 
     /**
@@ -190,23 +147,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
         }
 
         return "";
-    }
-
-    /**
-     * @notice Get all registered TLDs
-     * @return Array of all registered TLD strings
-     */
-    function getAllTLDs() external view returns (string[] memory) {
-        return registeredTLDs;
-    }
-
-    /**
-     * @notice Check if a TLD exists
-     * @param tld The top-level domain to check
-     * @return True if TLD exists, false otherwise
-     */
-    function tldExists(string calldata tld) external view returns (bool) {
-        return tldContracts[tld] != address(0);
     }
 
     /**
@@ -234,102 +174,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
         if (contractAddress == address(0)) revert TLDNotFound(tld);
 
         return NameService(contractAddress).resolveDomain(name);
-    }
-
-    /**
-     * @notice Get domain owner for a specific name and TLD
-     * @param name Domain name without TLD
-     * @param tld Top-level domain
-     * @return Domain owner address
-     */
-    function getDomainOwner(
-        string calldata name,
-        string calldata tld
-    ) external view returns (address) {
-        address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
-
-        return NameService(contractAddress).getDomainOwner(name);
-    }
-
-    /**
-     * @notice Get domain expiration for a specific name and TLD
-     * @param name Domain name without TLD
-     * @param tld Top-level domain
-     * @return Domain expiration timestamp
-     */
-    function getDomainExpiration(
-        string calldata name,
-        string calldata tld
-    ) external view returns (uint256) {
-        address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
-
-        return NameService(contractAddress).getDomainExpiration(name);
-    }
-
-    /**
-     * @notice Check if a domain is available for registration
-     * @param name Domain name without TLD
-     * @param tld Top-level domain
-     * @return True if domain is available, false otherwise
-     */
-    function isDomainAvailable(
-        string calldata name,
-        string calldata tld
-    ) external view returns (bool) {
-        address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
-
-        return NameService(contractAddress).isDomainAvailable(name);
-    }
-
-    /**
-     * @notice Get registration price for a domain
-     * @param name Domain name without TLD
-     * @param tld Top-level domain
-     * @param yearsToRegister Number of years to register
-     * @return Total price in wei
-     */
-    function getRegistrationPrice(
-        string calldata name,
-        string calldata tld,
-        uint256 yearsToRegister
-    ) external view returns (uint256) {
-        address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
-
-        return
-            NameService(contractAddress).getRegistrationPrice(
-                name,
-                yearsToRegister
-            );
-    }
-
-    /**
-     * @notice Get renewal price for a domain
-     * @param name Domain name without TLD
-     * @param tld Top-level domain
-     * @param yearsToRenew Number of years to renew
-     * @return Total price in wei
-     */
-    function getRenewalPrice(
-        string calldata name,
-        string calldata tld,
-        uint256 yearsToRenew
-    ) external view returns (uint256) {
-        address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
-
-        return NameService(contractAddress).getRenewalPrice(name, yearsToRenew);
-    }
-
-    /**
-     * @notice Get total number of registered TLDs
-     * @return Count of registered TLDs
-     */
-    function getTLDCount() external view returns (uint256) {
-        return registeredTLDs.length;
     }
 
     /**
@@ -420,49 +264,5 @@ contract HNSManager is Ownable, ReentrancyGuard {
                 emit MainDomainSet(owner, domains[0]);
             }
         }
-    }
-
-    /**
-     * @notice Extract TLD from full domain
-     * @param domain Full domain (name.tld)
-     * @return TLD string
-     */
-    function _extractTLD(
-        string memory domain
-    ) internal pure returns (string memory) {
-        bytes memory domainBytes = bytes(domain);
-        for (uint i = domainBytes.length - 1; i > 0; i--) {
-            if (domainBytes[i] == 0x2E) {
-                // dot character
-                bytes memory tld = new bytes(domainBytes.length - i - 1);
-                for (uint j = 0; j < tld.length; j++) {
-                    tld[j] = domainBytes[i + j + 1];
-                }
-                return string(tld);
-            }
-        }
-        return "";
-    }
-
-    /**
-     * @notice Extract name from full domain
-     * @param domain Full domain (name.tld)
-     * @return Name string
-     */
-    function _extractName(
-        string memory domain
-    ) internal pure returns (string memory) {
-        bytes memory domainBytes = bytes(domain);
-        for (uint i = 0; i < domainBytes.length; i++) {
-            if (domainBytes[i] == 0x2E) {
-                // dot character
-                bytes memory name = new bytes(i);
-                for (uint j = 0; j < i; j++) {
-                    name[j] = domainBytes[j];
-                }
-                return string(name);
-            }
-        }
-        return "";
     }
 }
