@@ -30,6 +30,9 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Mapping from address to all their domains across TLDs
     mapping(address => string[]) public addressToDomains;
 
+    /// @notice O(1) authorization mapping for valid NameService contracts
+    mapping(address => bool) public validNameServiceContracts;
+
     /// @notice Event emitted when a new TLD is added
     event TLDAdded(string indexed tld, address indexed contractAddress);
 
@@ -61,6 +64,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
      * @notice Constructor deploys SVG library
      */
     constructor() Ownable(msg.sender) {
+        require(msg.sender != address(0), "Invalid owner address");
         // Deploy SVG library
         SVGLibrary svgLib = new SVGLibrary();
         svgLibrary = address(svgLib);
@@ -83,6 +87,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         );
         tldContracts[tld] = address(nameService);
         registeredTLDs.push(tld);
+        validNameServiceContracts[address(nameService)] = true;
 
         emit TLDAdded(tld, address(nameService));
     }
@@ -96,6 +101,8 @@ contract HNSManager is Ownable, ReentrancyGuard {
         if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
 
         // Clear the mapping
+        address contractAddress = tldContracts[tld];
+        validNameServiceContracts[contractAddress] = false;
         delete tldContracts[tld];
 
         // Remove from array
@@ -335,15 +342,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        // Verify caller is a valid NameService contract
-        bool isValidContract = false;
-        for (uint i = 0; i < registeredTLDs.length; i++) {
-            if (tldContracts[registeredTLDs[i]] == msg.sender) {
-                isValidContract = true;
-                break;
-            }
-        }
-        require(isValidContract, "Unauthorized");
+        require(validNameServiceContracts[msg.sender], "Unauthorized");
 
         addressToDomains[owner].push(domain);
 
@@ -364,27 +363,28 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        // Verify caller is a valid NameService contract
-        bool isValidContract = false;
-        for (uint i = 0; i < registeredTLDs.length; i++) {
-            if (tldContracts[registeredTLDs[i]] == msg.sender) {
-                isValidContract = true;
+        require(validNameServiceContracts[msg.sender], "Unauthorized");
+
+        string[] storage domains = addressToDomains[owner];
+        uint256 index = type(uint256).max;
+
+        // Gas optimization: Cache keccak256 hash outside the loop
+        bytes32 domainHash = keccak256(bytes(domain));
+
+        for (uint i = 0; i < domains.length; i++) {
+            if (keccak256(bytes(domains[i])) == domainHash) {
+                index = i;
                 break;
             }
         }
-        require(isValidContract, "Unauthorized");
 
-        string[] storage domains = addressToDomains[owner];
-        for (uint i = 0; i < domains.length; i++) {
-            if (keccak256(bytes(domains[i])) == keccak256(bytes(domain))) {
-                domains[i] = domains[domains.length - 1];
-                domains.pop();
-                break;
-            }
+        if (index < domains.length) {
+            domains[index] = domains[domains.length - 1];
+            domains.pop();
         }
 
         // Clear main domain if it was this domain
-        if (keccak256(bytes(mainDomain[owner])) == keccak256(bytes(domain))) {
+        if (keccak256(bytes(mainDomain[owner])) == domainHash) {
             delete mainDomain[owner];
 
             // Auto-assign new main domain if other domains exist
@@ -405,18 +405,12 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        // Verify caller is a valid NameService contract
-        bool isValidContract = false;
-        for (uint i = 0; i < registeredTLDs.length; i++) {
-            if (tldContracts[registeredTLDs[i]] == msg.sender) {
-                isValidContract = true;
-                break;
-            }
-        }
-        require(isValidContract, "Unauthorized");
+        require(validNameServiceContracts[msg.sender], "Unauthorized");
 
         // Clear main domain if it was this domain
-        if (keccak256(bytes(mainDomain[owner])) == keccak256(bytes(domain))) {
+        // Gas optimization: Cache keccak256 hash
+        bytes32 domainHash = keccak256(bytes(domain));
+        if (keccak256(bytes(mainDomain[owner])) == domainHash) {
             delete mainDomain[owner];
 
             // Auto-assign new main domain if other domains exist

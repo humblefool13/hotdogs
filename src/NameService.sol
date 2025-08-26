@@ -6,6 +6,7 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
 import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./SVGLibrary.sol";
 import "./MinHeap.sol";
 
@@ -15,7 +16,7 @@ import "./MinHeap.sol";
  * @dev Handles domain registrations, NFTs, and domain management for a specific TLD
  * @dev Optimized with MinHeap for efficient expiration management and domainToIndex for O(1) array removal
  */
-contract NameService is ERC721URIStorage, ReentrancyGuard {
+contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     using Strings for uint256;
     using MinHeap for MinHeap.Heap;
 
@@ -36,9 +37,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
 
     struct DomainInfo {
         address owner;
+        uint96 renewalCount;
         uint256 expiration;
         uint256 registrationDate;
-        uint256 renewalCount;
     }
 
     mapping(string => DomainInfo) public domains;
@@ -51,6 +52,11 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
 
     // Gas optimization: O(1) index lookup for allDomains removal
     mapping(string => uint256) private domainToIndex; // Maps domain to allDomains index (1-based)
+
+    // Constants
+    uint256 public constant DEV_FEE_PERCENTAGE = 25; // 25%
+    uint256 public constant MAX_CLEANUP_BATCH = 20; // Max domains to cleanup in one call
+    uint256 public constant ROYALTY_PERCENTAGE = 250; // 2.5% (basis points)
 
     event DomainRegistered(
         string indexed name,
@@ -69,13 +75,14 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
         address indexed to
     );
     event DomainExpired(string indexed name, address indexed previousOwner);
+    event ExpiredDomainsProcessed(uint256 cleaned);
 
     error DomainAlreadyRegistered(string name);
     error DomainNotFound(string name);
     error Unauthorized();
     error InvalidName(string name);
     error InvalidRegistrationPeriod();
-    error InsufficientPayment();
+    error InsufficientPaymentAmount(uint256 required, uint256 provided);
     error DomainIsExpired(string name);
     error TransferFailed();
 
@@ -105,23 +112,22 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
             revert InvalidRegistrationPeriod();
 
         uint256 price = _calculatePrice(name, yearsToRegister);
-        if (msg.value < price) revert InsufficientPayment();
+        if (msg.value < price)
+            revert InsufficientPaymentAmount(price, msg.value);
 
         uint256 expiration = block.timestamp + (yearsToRegister * 365 days);
 
         DomainInfo memory domainInfo = DomainInfo({
             owner: msg.sender,
+            renewalCount: 0,
             expiration: expiration,
-            registrationDate: block.timestamp,
-            renewalCount: 0
+            registrationDate: block.timestamp
         });
 
         uint256 tokenId = _nextTokenId;
         _nextTokenId++;
 
-        _safeMint(msg.sender, tokenId);
-        _setTokenURI(tokenId, _buildTokenURI(name));
-
+        // STATE UPDATES FIRST
         domains[name] = domainInfo;
         tokenToDomain[tokenId] = name;
         domainToToken[name] = tokenId;
@@ -132,6 +138,10 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
 
         // Gas optimization: Add to expiration heap for efficient management
         expirationHeap.insert(name, expiration);
+
+        // EXTERNAL CALLS AFTER STATE UPDATES
+        _safeMint(msg.sender, tokenId);
+        _setTokenURI(tokenId, _buildTokenURI(name));
 
         // Add to manager's address mapping
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
@@ -153,7 +163,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
             revert InvalidRegistrationPeriod();
 
         uint256 price = _calculatePrice(name, yearsToRenew);
-        if (msg.value < price) revert InsufficientPayment();
+        if (msg.value < price)
+            revert InsufficientPaymentAmount(price, msg.value);
 
         domain.expiration = domain.expiration + (yearsToRenew * 365 days);
         domain.renewalCount++;
@@ -173,8 +184,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender) revert Unauthorized();
-        if (domain.expiration < block.timestamp) revert DomainIsExpired(name);
-        require(to != address(0), "Invalid recipient");
+        require(to != address(0), "Cannot transfer to zero address");
 
         uint256 tokenId = domainToToken[name];
 
@@ -274,50 +284,74 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
      * @dev Only processes actually expired domains instead of scanning entire array
      */
     function checkAndBurnExpiredDomains() external nonReentrant {
-        // Gas optimization: Process only expired domains using heap
-        while (expirationHeap.size() > 0) {
-            (string memory name, uint256 expiration) = expirationHeap.getMin();
+        // Bounded cleanup to prevent gas bombs
+        cleanupExpiredDomains(MAX_CLEANUP_BATCH);
+    }
 
-            // If earliest expiration is in future, no more expired domains
+    /**
+     * @notice Bounded batch cleanup of expired domains to avoid unbounded gas
+     * @param maxDomains Maximum number of expired domains to process in this call (capped at 20)
+     */
+    function cleanupExpiredDomains(uint256 maxDomains) public nonReentrant {
+        require(
+            maxDomains > 0 && maxDomains <= MAX_CLEANUP_BATCH,
+            "Batch too large"
+        );
+
+        uint256 cleaned = 0;
+        while (expirationHeap.size() > 0 && cleaned < maxDomains) {
+            (string memory name, uint256 expiration) = expirationHeap.getMin();
             if (expiration >= block.timestamp) break;
 
-            // Pop and process expired domain
             (name, ) = expirationHeap.popMin();
-            DomainInfo storage domain = domains[name];
-
-            // Skip if already processed
-            if (domain.owner == address(0)) continue;
-
-            uint256 tokenId = domainToToken[name];
-            address previousOwner = domain.owner;
-
-            // Burn the NFT
-            _burn(tokenId);
-
-            // Clear domain info
-            delete domains[name];
-            delete tokenToDomain[tokenId];
-            delete domainToToken[name];
-
-            // Gas optimization: O(1) removal from allDomains using domainToIndex
-            uint256 index = domainToIndex[name];
-            if (index > 0) {
-                index -= 1; // Convert to 0-based
-                allDomains[index] = allDomains[allDomains.length - 1];
-                domainToIndex[allDomains[index]] = index + 1;
-                allDomains.pop();
-                delete domainToIndex[name];
+            if (domains[name].owner != address(0)) {
+                _burnExpiredDomain(name);
+                cleaned++;
             }
-
-            // Remove from manager's address mapping
-            string memory fullDomain = string(abi.encodePacked(name, ".", tld));
-            IHNSManager(hnsManager).removeDomainFromAddress(
-                previousOwner,
-                fullDomain
-            );
-
-            emit DomainExpired(name, previousOwner);
         }
+
+        emit ExpiredDomainsProcessed(cleaned);
+    }
+
+    /**
+     * @notice Internal helper to burn and clean up a specific expired domain
+     * @param name The domain name to burn
+     */
+    function _burnExpiredDomain(string memory name) internal {
+        DomainInfo storage domain = domains[name];
+        // Recheck expiration to prevent race with renewal
+        if (domain.expiration >= block.timestamp) {
+            return;
+        }
+        uint256 tokenId = domainToToken[name];
+        address previousOwner = domain.owner;
+
+        // Burn the NFT
+        _burn(tokenId);
+
+        // Clear domain info
+        delete domains[name];
+        delete tokenToDomain[tokenId];
+        delete domainToToken[name];
+
+        // O(1) removal from allDomains using domainToIndex
+        uint256 index = domainToIndex[name];
+        if (index > 0) {
+            index -= 1; // Convert to 0-based
+            allDomains[index] = allDomains[allDomains.length - 1];
+            domainToIndex[allDomains[index]] = index + 1;
+            allDomains.pop();
+            delete domainToIndex[name];
+        }
+
+        // Update manager mappings
+        string memory fullDomain = string(abi.encodePacked(name, ".", tld));
+        IHNSManager(hnsManager).removeDomainFromAddress(
+            previousOwner,
+            fullDomain
+        );
+
+        emit DomainExpired(name, previousOwner);
     }
 
     /**
@@ -449,7 +483,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
         DomainInfo memory domain = domains[name];
         string memory expirationDate = domain.expiration.toString();
         string memory registrationDate = domain.registrationDate.toString();
-        string memory renewalCount = domain.renewalCount.toString();
+        string memory renewalCount = uint256(domain.renewalCount).toString();
         string memory nameLength = bytes(name).length.toString();
 
         string memory json = Base64.encode(
@@ -506,7 +540,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
     }
 
     function _distributeFees(uint256 amount) internal {
-        uint256 devFeeAmount = (amount * 25) / 100;
+        uint256 devFeeAmount = (amount * DEV_FEE_PERCENTAGE) / 100;
         uint256 managerAmount = amount - devFeeAmount;
 
         if (devFeeAmount > 0) {
@@ -569,6 +603,23 @@ contract NameService is ERC721URIStorage, ReentrancyGuard {
      */
     function getExpirationHeapSize() external view returns (uint256) {
         return expirationHeap.size();
+    }
+
+    // EIP-2981 Royalty support
+    function supportsInterface(
+        bytes4 interfaceId
+    ) public view virtual override(ERC721URIStorage, IERC165) returns (bool) {
+        return
+            interfaceId == type(IERC2981).interfaceId ||
+            super.supportsInterface(interfaceId);
+    }
+
+    function royaltyInfo(
+        uint256 tokenId,
+        uint256 salePrice
+    ) external view override returns (address receiver, uint256 royaltyAmount) {
+        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        return (hnsManager, (salePrice * ROYALTY_PERCENTAGE) / 10000);
     }
 }
 
