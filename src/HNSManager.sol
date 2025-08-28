@@ -65,6 +65,11 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Error thrown when caller is unauthorized
     error UnAuth();
 
+    modifier onlyNS() {
+        if (!validNSAddress[msg.sender]) revert UnAuth();
+        _;
+    }
+
     /**
      * @notice Constructor deploys SVG library
      */
@@ -187,9 +192,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function addDomainToAddress(
         address owner,
         string calldata domain
-    ) external nonReentrant {
-        if (!validNSAddress[msg.sender]) revert UnAuth();
-
+    ) external nonReentrant onlyNS {
         addressToDomains[owner].push(domain);
 
         // Auto-assign main domain if this is the only domain or first domain
@@ -208,9 +211,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function removeDomainFromAddress(
         address owner,
         string calldata domain
-    ) external nonReentrant {
-        if (!validNSAddress[msg.sender]) revert UnAuth();
-
+    ) external nonReentrant onlyNS {
         string[] storage domains = addressToDomains[owner];
         uint256 index = type(uint256).max;
 
@@ -250,9 +251,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function clearMainDomainIfNeeded(
         address owner,
         string calldata domain
-    ) external nonReentrant {
-        if (!validNSAddress[msg.sender]) revert UnAuth();
-
+    ) external nonReentrant onlyNS {
         // Clear main domain if it was this domain
         // Gas optimization: Cache keccak256 hash
         bytes32 domainHash = keccak256(bytes(domain));
