@@ -85,15 +85,21 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     error InsufficientPaymentAmount(uint256 required, uint256 provided);
     error DomainIsExpired(string name);
     error TransferFailed();
+    error BadTLD();
+    error BadMgr();
+    error BadSVG();
+    error ZeroAddr();
+    error BadBatch();
+    error NoToken();
 
     constructor(
         string memory _tld,
         address _hnsManager,
         address _svgLibrary
     ) ERC721("HotDogs Naming Service", "HNS") {
-        require(bytes(_tld).length > 0, "Invalid TLD");
-        require(_hnsManager != address(0), "Invalid manager address");
-        require(_svgLibrary != address(0), "Invalid SVG library address");
+        if (bytes(_tld).length == 0) revert BadTLD();
+        if (_hnsManager == address(0)) revert BadMgr();
+        if (_svgLibrary == address(0)) revert BadSVG();
 
         tld = _tld;
         hnsManager = _hnsManager;
@@ -184,7 +190,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender) revert Unauthorized();
-        require(to != address(0), "Cannot transfer to zero address");
+        if (to == address(0)) revert ZeroAddr();
 
         uint256 tokenId = domainToToken[name];
 
@@ -293,10 +299,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
      * @param maxDomains Maximum number of expired domains to process in this call (capped at 20)
      */
     function cleanupExpiredDomains(uint256 maxDomains) public nonReentrant {
-        require(
-            maxDomains > 0 && maxDomains <= MAX_CLEANUP_BATCH,
-            "Batch too large"
-        );
+        if (maxDomains == 0 || maxDomains > MAX_CLEANUP_BATCH)
+            revert BadBatch();
 
         uint256 cleaned = 0;
         while (expirationHeap.size() > 0 && cleaned < maxDomains) {
@@ -618,7 +622,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         uint256 tokenId,
         uint256 salePrice
     ) external view override returns (address receiver, uint256 royaltyAmount) {
-        require(_ownerOf(tokenId) != address(0), "Token does not exist");
+        if (_ownerOf(tokenId) == address(0)) revert NoToken();
         return (hnsManager, (salePrice * ROYALTY_PERCENTAGE) / 10000);
     }
 }

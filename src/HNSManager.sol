@@ -33,13 +33,10 @@ contract HNSManager is Ownable, ReentrancyGuard {
     mapping(address => string[]) public addressToDomains;
 
     /// @notice O(1) authorization mapping for valid NameService contracts
-    mapping(address => bool) public validNameServiceContracts;
+    mapping(address => bool) public validNSAddress;
 
     /// @notice Event emitted when a new TLD is added
-    event TLDAdded(string indexed tld, address indexed contractAddress);
-
-    /// @notice Event emitted when a TLD is removed
-    event TLDRemoved(string indexed tld);
+    event TLDAdded(string indexed tld, address indexed tldContract);
 
     /// @notice Event emitted when funds are withdrawn
     event FundsWithdrawn(address indexed recipient, uint256 amount);
@@ -48,13 +45,13 @@ contract HNSManager is Ownable, ReentrancyGuard {
     event MainDomainSet(address indexed owner, string domain);
 
     /// @notice Error thrown when TLD already exists
-    error TLDAlreadyExists(string tld);
+    error TLDExists();
 
     /// @notice Error thrown when TLD does not exist
-    error TLDNotFound(string tld);
+    error TLDNotFound();
 
     /// @notice Error thrown when TLD is invalid
-    error InvalidTLD(string tld);
+    error InvalidTLD();
 
     /// @notice Error thrown when transfer fails
     error TransferFailed();
@@ -62,12 +59,16 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Error thrown when domain not found
     error DomainNotFound();
 
+    /// @notice Error thrown when no funds are available
+    error NoFunds();
+
+    /// @notice Error thrown when caller is unauthorized
+    error UnAuth();
+
     /**
      * @notice Constructor deploys SVG library
      */
     constructor() Ownable(msg.sender) {
-        require(msg.sender != address(0), "Invalid owner address");
-        // Deploy SVG library
         SVGLibrary svgLib = new SVGLibrary();
         svgLibrary = address(svgLib);
     }
@@ -78,8 +79,9 @@ contract HNSManager is Ownable, ReentrancyGuard {
      * @dev Only callable by owner
      */
     function addTLD(string calldata tld) external onlyOwner nonReentrant {
-        if (bytes(tld).length == 0) revert InvalidTLD(tld);
-        if (tldContracts[tld] != address(0)) revert TLDAlreadyExists(tld);
+        if (bytes(tld).length == 0 || bytes(tld).length > 10)
+            revert InvalidTLD();
+        if (tldContracts[tld] != address(0)) revert TLDExists();
 
         // Deploy new NameService contract for this TLD
         NameService nameService = new NameService(
@@ -89,7 +91,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         );
         tldContracts[tld] = address(nameService);
         registeredTLDs.push(tld);
-        validNameServiceContracts[address(nameService)] = true;
+        validNSAddress[address(nameService)] = true;
 
         emit TLDAdded(tld, address(nameService));
     }
@@ -100,7 +102,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
      */
     function withdrawFunds() external onlyOwner nonReentrant {
         uint256 amount = address(this).balance;
-        require(amount > 0, "No funds to withdraw");
+        if (amount == 0) revert NoFunds();
 
         (bool success, ) = payable(owner()).call{value: amount}("");
         if (!success) revert TransferFailed();
@@ -116,7 +118,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function setMainDomain(string calldata domain) external nonReentrant {
         // Parse domain to get TLD
         string memory tld = domain.extractTLD();
-        if (tldContracts[tld] == address(0)) revert TLDNotFound(tld);
+        if (tldContracts[tld] == address(0)) revert TLDNotFound();
 
         // Check if caller owns the domain
         string memory name = domain.extractName();
@@ -171,7 +173,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         )
     {
         address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound(tld);
+        if (contractAddress == address(0)) revert TLDNotFound();
 
         return NameService(contractAddress).resolveDomain(name);
     }
@@ -186,7 +188,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        require(validNameServiceContracts[msg.sender], "Unauthorized");
+        if (!validNSAddress[msg.sender]) revert UnAuth();
 
         addressToDomains[owner].push(domain);
 
@@ -207,7 +209,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        require(validNameServiceContracts[msg.sender], "Unauthorized");
+        if (!validNSAddress[msg.sender]) revert UnAuth();
 
         string[] storage domains = addressToDomains[owner];
         uint256 index = type(uint256).max;
@@ -249,7 +251,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         address owner,
         string calldata domain
     ) external nonReentrant {
-        require(validNameServiceContracts[msg.sender], "Unauthorized");
+        if (!validNSAddress[msg.sender]) revert UnAuth();
 
         // Clear main domain if it was this domain
         // Gas optimization: Cache keccak256 hash

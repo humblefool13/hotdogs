@@ -43,7 +43,7 @@ library MinHeap {
     function popMin(
         Heap storage heap
     ) internal returns (string memory domain, uint256 expiration) {
-        require(heap.entries.length > 0, "Heap empty");
+        if (heap.entries.length == 0) revert HeapEmpty();
         HeapEntry memory minEntry = heap.entries[0];
         domain = minEntry.domain;
         expiration = minEntry.expiration;
@@ -72,7 +72,7 @@ library MinHeap {
         uint256 newExpiration
     ) internal {
         uint256 index = heap.domainToIndex[domain];
-        require(index > 0, "Domain not in heap");
+        if (index == 0) revert NotInHeap();
         index -= 1; // Convert to 0-based
 
         uint256 oldExpiration = heap.entries[index].expiration;
@@ -95,7 +95,7 @@ library MinHeap {
     function getMin(
         Heap storage heap
     ) internal view returns (string memory domain, uint256 expiration) {
-        require(heap.entries.length > 0, "Heap empty");
+        if (heap.entries.length == 0) revert HeapEmpty();
         return (heap.entries[0].domain, heap.entries[0].expiration);
     }
 
@@ -106,7 +106,7 @@ library MinHeap {
      */
     function remove(Heap storage heap, string memory domain) internal {
         uint256 index = heap.domainToIndex[domain];
-        require(index > 0, "Domain not in heap");
+        if (index == 0) revert NotInHeap();
         index -= 1; // Convert to 0-based
 
         // If it's the last element, just pop
@@ -217,4 +217,7 @@ library MinHeap {
         heap.domainToIndex[heap.entries[i].domain] = i + 1;
         heap.domainToIndex[heap.entries[j].domain] = j + 1;
     }
+
+    error HeapEmpty();
+    error NotInHeap();
 }
