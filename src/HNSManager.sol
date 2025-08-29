@@ -247,4 +247,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
             }
         }
     }
+
+    receive() external payable {}
 }
