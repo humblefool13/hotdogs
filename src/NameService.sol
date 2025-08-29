@@ -9,6 +9,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./SVGLibrary.sol";
 import "./MinHeap.sol";
+import "./TokenURILibrary.sol";
 
 /**
  * @title NameService
@@ -19,6 +20,7 @@ import "./MinHeap.sol";
 contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     using Strings for uint256;
     using MinHeap for MinHeap.Heap;
+    using TokenURILibrary for string;
 
     uint256 public constant PRICE_3_CHAR = 0.012 ether;
     uint256 public constant PRICE_4_CHAR = 0.01 ether;
@@ -28,10 +30,11 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     uint256 public constant MAX_REGISTRATION_YEARS = 10;
     uint256 public constant MIN_DOMAIN_LENGTH = 3;
     uint256 public constant MAX_DOMAIN_LENGTH = 20;
+    address public constant devFeeRecipient =
+        0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679;
 
     string public tld;
     address public immutable hnsManager;
-    address public immutable devFeeRecipient;
     address public immutable svgLibrary;
     uint256 private _nextTokenId = 1;
 
@@ -96,7 +99,12 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         string memory _tld,
         address _hnsManager,
         address _svgLibrary
-    ) ERC721("HotDogs Naming Service", "HNS") {
+    )
+        ERC721(
+            string(abi.encodePacked("HotDogs Naming Service", " - ", _tld)),
+            string(abi.encodePacked("HNS", _toUpper(_tld)))
+        )
+    {
         if (bytes(_tld).length == 0) revert BadTLD();
         if (_hnsManager == address(0)) revert BadMgr();
         if (_svgLibrary == address(0)) revert BadSVG();
@@ -104,7 +112,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         tld = _tld;
         hnsManager = _hnsManager;
         svgLibrary = _svgLibrary;
-        devFeeRecipient = 0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679;
     }
 
     function register(
@@ -147,7 +154,17 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
         // EXTERNAL CALLS AFTER STATE UPDATES
         _safeMint(msg.sender, tokenId);
-        _setTokenURI(tokenId, _buildTokenURI(name));
+        _setTokenURI(
+            tokenId,
+            TokenURILibrary.buildTokenURI(
+                name,
+                tld,
+                svgLibrary,
+                domainInfo.expiration,
+                domainInfo.registrationDate,
+                domainInfo.renewalCount
+            )
+        );
 
         // Add to manager's address mapping
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
@@ -162,9 +179,11 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         string calldata name,
         uint256 yearsToRenew
     ) external payable nonReentrant {
+        if (!_isValidName(name)) revert InvalidName(name);
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
-        if (domain.owner != msg.sender) revert Unauthorized();
+        if (domain.owner != msg.sender || domain.expiration < block.timestamp)
+            revert Unauthorized();
         if (yearsToRenew == 0 || yearsToRenew > MAX_REGISTRATION_YEARS)
             revert InvalidRegistrationPeriod();
 
@@ -188,7 +207,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         address to
     ) external nonReentrant {
         DomainInfo storage domain = domains[name];
-        if (domain.owner == address(0)) revert DomainNotFound(name);
+        if (domain.owner == address(0) || domain.expiration < block.timestamp)
+            revert DomainNotFound(name);
         if (domain.owner != msg.sender) revert Unauthorized();
         if (to == address(0)) revert ZeroAddr();
 
@@ -222,34 +242,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         string calldata name
     ) external view returns (uint256) {
         return domains[name].expiration;
-    }
-
-    function getRegistrationPrice(
-        string calldata name,
-        uint256 yearsToRegister
-    ) external pure returns (uint256) {
-        if (
-            !_isValidName(name) ||
-            yearsToRegister == 0 ||
-            yearsToRegister > MAX_REGISTRATION_YEARS
-        ) {
-            return 0;
-        }
-        return _calculatePrice(name, yearsToRegister);
-    }
-
-    function getRenewalPrice(
-        string calldata name,
-        uint256 yearsToRenew
-    ) external view returns (uint256) {
-        if (
-            domains[name].owner == address(0) ||
-            yearsToRenew == 0 ||
-            yearsToRenew > MAX_REGISTRATION_YEARS
-        ) {
-            return 0;
-        }
-        return _calculatePrice(name, yearsToRenew);
     }
 
     function getAllDomains() external view returns (string[] memory) {
@@ -369,7 +361,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     ) internal virtual override returns (address) {
         // Check if domain is expired
         string memory name = tokenToDomain[tokenId];
-        if (bytes(name).length > 0) {
+        if (bytes(name).length > 0 && to != address(0)) {
             DomainInfo storage domain = domains[name];
             if (domain.expiration < block.timestamp) {
                 revert DomainIsExpired(name);
@@ -446,6 +438,19 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         return basePrice * _years;
     }
 
+    function _toUpper(
+        string memory input
+    ) internal pure returns (string memory) {
+        bytes memory b = bytes(input);
+        for (uint i = 0; i < b.length; i++) {
+            bytes1 char = b[i];
+            if (char >= 0x61 && char <= 0x7A) {
+                b[i] = bytes1(uint8(char) - 32);
+            }
+        }
+        return string(b);
+    }
+
     function _isValidName(string memory name) internal pure returns (bool) {
         bytes memory nameBytes = bytes(name);
         if (
@@ -472,75 +477,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         }
 
         return true;
-    }
-
-    function _buildTokenURI(
-        string memory name
-    ) internal view returns (string memory) {
-        string memory fullDomain = string(abi.encodePacked(name, ".", tld));
-
-        // Generate SVG using the library
-        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
-        string memory imageData = Base64.encode(bytes(svg));
-
-        // Build comprehensive metadata
-        DomainInfo memory domain = domains[name];
-        string memory expirationDate = domain.expiration.toString();
-        string memory registrationDate = domain.registrationDate.toString();
-        string memory renewalCount = uint256(domain.renewalCount).toString();
-        string memory nameLength = bytes(name).length.toString();
-
-        string memory json = Base64.encode(
-            bytes(
-                string(
-                    abi.encodePacked(
-                        '{"name": "',
-                        fullDomain,
-                        '",',
-                        '"description": "A domain on the HotDogs Naming Service",',
-                        '"image": "data:image/svg+xml;base64,',
-                        imageData,
-                        '",',
-                        '"external_url": "https://hotdogs.xyz",',
-                        '"attributes": [',
-                        '{"trait_type": "TLD", "value": "',
-                        tld,
-                        '"},',
-                        '{"trait_type": "Name Length", "value": "',
-                        nameLength,
-                        '"},',
-                        '{"trait_type": "Registration Date", "value": "',
-                        registrationDate,
-                        '"},',
-                        '{"trait_type": "Expiration Date", "value": "',
-                        expirationDate,
-                        '"},',
-                        '{"trait_type": "Renewal Count", "value": "',
-                        renewalCount,
-                        '"}',
-                        "],",
-                        '"properties": {',
-                        '"files": [{"uri": "data:image/svg+xml;base64,',
-                        imageData,
-                        '", "type": "image/svg+xml"}],',
-                        '"category": "domain",',
-                        '"domain": "',
-                        fullDomain,
-                        '",',
-                        '"tld": "',
-                        tld,
-                        '",',
-                        '"name": "',
-                        name,
-                        '"',
-                        "}",
-                        "}"
-                    )
-                )
-            )
-        );
-
-        return string(abi.encodePacked("data:application/json;base64,", json));
     }
 
     function _distributeFees(uint256 amount) internal {
@@ -581,32 +517,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             domain.registrationDate,
             domain.renewalCount
         );
-    }
-
-    /**
-     * @notice Get the next domain that will expire
-     * @dev Gas optimization: O(1) access to earliest expiration
-     * @return domain The domain name
-     * @return expiration The expiration timestamp
-     */
-    function getNextExpiringDomain()
-        external
-        view
-        returns (string memory domain, uint256 expiration)
-    {
-        if (expirationHeap.size() > 0) {
-            return expirationHeap.getMin();
-        }
-        return ("", 0);
-    }
-
-    /**
-     * @notice Get the total number of domains in the expiration heap
-     * @dev Useful for monitoring and debugging
-     * @return The number of domains tracked for expiration
-     */
-    function getExpirationHeapSize() external view returns (uint256) {
-        return expirationHeap.size();
     }
 
     // EIP-2981 Royalty support
