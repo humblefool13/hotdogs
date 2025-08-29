@@ -41,9 +41,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Event emitted when funds are withdrawn
     event FundsWithdrawn(address indexed recipient, uint256 amount);
 
-    /// @notice Event emitted when main domain is set
-    event MainDomainSet(address indexed owner, string domain);
-
     /// @notice Error thrown when TLD already exists
     error TLDExists();
 
@@ -132,7 +129,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
             revert DomainNotFound();
 
         mainDomain[msg.sender] = domain;
-        emit MainDomainSet(msg.sender, domain);
     }
 
     /**
@@ -147,7 +143,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
             return main;
         }
 
-        // Return first available domain
+        // Return first available domain otherwise
         string[] memory domains = addressToDomains[addr];
         if (domains.length > 0) {
             return domains[0];
@@ -198,7 +194,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
         // Auto-assign main domain if this is the only domain or first domain
         if (addressToDomains[owner].length == 1) {
             mainDomain[owner] = domain;
-            emit MainDomainSet(owner, domain);
         }
     }
 
@@ -237,7 +232,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
             // Auto-assign new main domain if other domains exist
             if (domains.length > 0) {
                 mainDomain[owner] = domains[0];
-                emit MainDomainSet(owner, domains[0]);
             }
         }
     }
@@ -262,7 +256,6 @@ contract HNSManager is Ownable, ReentrancyGuard {
             string[] storage domains = addressToDomains[owner];
             if (domains.length > 0) {
                 mainDomain[owner] = domains[0];
-                emit MainDomainSet(owner, domains[0]);
             }
         }
     }
