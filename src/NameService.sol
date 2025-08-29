@@ -113,13 +113,13 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     )
         ERC721(
             string(abi.encodePacked("HotDogs Naming Service", " - ", _tld)),
-            string(abi.encodePacked("HNS", _toUpper(_tld)))
+            string(abi.encodePacked(_toUpper(_tld)))
         )
     {
+        _toLower(_tld);
         if (bytes(_tld).length == 0) revert BadTLD();
         if (_hnsManager == address(0)) revert BadMgr();
         if (_svgLibrary == address(0)) revert BadSVG();
-
         tld = _tld;
         hnsManager = _hnsManager;
         svgLibrary = _svgLibrary;
@@ -468,6 +468,19 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             bytes1 char = b[i];
             if (char >= 0x61 && char <= 0x7A) {
                 b[i] = bytes1(uint8(char) - 32);
+            }
+        }
+        return string(b);
+    }
+
+    function _toLower(
+        string memory input
+    ) internal pure returns (string memory) {
+        bytes memory b = bytes(input);
+        for (uint i = 0; i < b.length; i++) {
+            bytes1 char = b[i];
+            if (char >= 0x41 && char <= 0x5A) {
+                b[i] = bytes1(uint8(char) + 32);
             }
         }
         return string(b);

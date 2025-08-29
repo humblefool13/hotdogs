@@ -49,41 +49,37 @@ library TokenURILibrary {
         string memory imageData = Base64.encode(bytes(svg));
 
         // Build metadata JSON
-        string memory json = Base64.encode(
-            bytes(
-                string(
-                    abi.encodePacked(
-                        '{"name":"',
-                        fullDomain,
-                        '",',
-                        '"description":"A domain on the HotDogs Naming Service.",',
-                        '"image":"data:image/svg+xml;base64,',
-                        imageData,
-                        '",',
-                        '"external_url":"https://hotdogs.wtf",',
-                        '"attributes":[',
-                        '{"trait_type":"TLD","value":"',
-                        tld,
-                        '"},',
-                        '{"trait_type":"Name Length","value":"',
-                        bytes(name).length.toString(),
-                        '"},',
-                        '{"display_type":"date","trait_type":"Registration Date","value":',
-                        registrationDate.toString(),
-                        "},",
-                        '{"display_type":"date","trait_type":"Expiration Date","value":',
-                        expiration.toString(),
-                        "},",
-                        '{"display_type":"number","trait_type":"Renewal Count","value":',
-                        renewalCount.toString(),
-                        "}",
-                        "]",
-                        "}"
-                    )
-                )
+        string memory json = string(
+            abi.encodePacked(
+                '{"name":"',
+                fullDomain,
+                '",',
+                '"description":"A domain on the HotDogs Naming Service.",',
+                '"image":"data:image/svg+xml;base64,',
+                imageData,
+                '",',
+                '"external_url":"https://hotdogs.wtf",',
+                '"attributes":[',
+                '{"trait_type":"TLD","value":"',
+                tld,
+                '"},',
+                '{"trait_type":"Name Length","value":"',
+                bytes(name).length.toString(),
+                '"},',
+                '{"display_type":"date","trait_type":"Registration Date","value":',
+                registrationDate.toString(),
+                "},",
+                '{"display_type":"date","trait_type":"Expiration Date","value":',
+                expiration.toString(),
+                "},",
+                '{"display_type":"number","trait_type":"Renewal Count","value":',
+                renewalCount.toString(),
+                "}",
+                "]",
+                "}"
             )
         );
 
-        return string(abi.encodePacked("data:application/json;base64,", json));
+        return json;
     }
 }
