@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT
+/*
+ _                        _      _         __                _  _  _____ 
+| |__   _   _  _ __ ___  | |__  | |  ___  / _|  ___    ___  | |/ ||___ / 
+| '_ \ | | | || '_ ` _ \ | '_ \ | | / _ \| |_  / _ \  / _ \ | || |  |_ \ 
+| | | || |_| || | | | | || |_) || ||  __/|  _|| (_) || (_) || || | ___) |
+|_| |_| \__,_||_| |_| |_||_.__/ |_| \___||_|   \___/  \___/ |_||_||____/ 
+                                                                         
+https://t.me/humblefool13    
+                                                                  
+*/
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/access/Ownable.sol";
@@ -10,56 +21,56 @@ import "./DomainUtils.sol";
 
 /**
  * @title HotDogsNamingService
- * @notice Central manager contract for the HotDogs Naming Service system
+ * @notice Central manager for the HotDogs Naming Service system
  * @dev Manages TLD deployments and provides unified resolution interface
  */
 contract HNSManager is Ownable, ReentrancyGuard {
     using Address for address payable;
     using DomainUtils for string;
 
-    /// @notice Mapping of TLD to deployed NameService contract address
+    /// @notice TLD to deployed NameService contract mapping
     mapping(string => address) public tldContracts;
 
-    /// @notice Array of all registered TLDs
+    /// @notice All registered TLDs
     string[] public registeredTLDs;
 
     /// @notice SVG library contract address
     address public immutable svgLibrary;
 
-    /// @notice Mapping from address to their main domain (TLD + name)
+    /// @notice Address to main domain mapping
     mapping(address => string) public mainDomain;
 
-    /// @notice Mapping from address to all their domains across TLDs
+    /// @notice Address to all domains mapping
     mapping(address => string[]) public addressToDomains;
 
-    /// @notice O(1) authorization mapping for valid NameService contracts
+    /// @notice Valid NameService contract addresses
     mapping(address => bool) public validNSAddress;
 
-    /// @notice Event emitted when a new TLD is added
+    /// @notice Emitted when a new TLD is added
     event TLDAdded(string indexed tld, address indexed tldContract);
 
-    /// @notice Event emitted when funds are withdrawn
+    /// @notice Emitted when funds are withdrawn
     event FundsWithdrawn(address indexed recipient, uint256 amount);
 
-    /// @notice Error thrown when TLD already exists
+    /// @notice Error when TLD already exists
     error TLDExists();
 
-    /// @notice Error thrown when TLD does not exist
+    /// @notice Error when TLD does not exist
     error TLDNotFound();
 
-    /// @notice Error thrown when TLD is invalid
+    /// @notice Error when TLD is invalid
     error InvalidTLD();
 
-    /// @notice Error thrown when transfer fails
+    /// @notice Error when transfer fails
     error TransferFailed();
 
-    /// @notice Error thrown when domain not found
+    /// @notice Error when domain not found
     error DomainNotFound();
 
-    /// @notice Error thrown when no funds are available
+    /// @notice Error when no funds available
     error NoFunds();
 
-    /// @notice Error thrown when caller is unauthorized
+    /// @notice Error when caller is unauthorized
     error UnAuth();
 
     modifier onlyNS() {
@@ -76,7 +87,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Add a new TLD and deploy its NameService contract
+     * @notice Adds a new TLD and deploys its NameService contract
      * @param tld The top-level domain to add
      * @dev Only callable by owner
      */
@@ -99,7 +110,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Withdraw all accumulated fees from the contract
+     * @notice Withdraws all accumulated fees from the contract
      * @dev Only callable by owner
      */
     function withdrawFunds() external onlyOwner nonReentrant {
@@ -113,7 +124,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Set main domain for an address
+     * @notice Sets main domain for an address
      * @param domain Full domain (name.tld)
      * @dev Only callable by domain owner
      */
@@ -159,6 +170,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
      * @return owner Domain owner address
      * @return expiration Domain expiration timestamp
      * @return nftAddress Associated NFT contract address
+     * @return tokenId Associated token ID
      */
     function resolve(
         string calldata name,
@@ -180,7 +192,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Add domain to address mapping (called by NameService contracts)
+     * @notice Adds domain to address mapping (called by NameService contracts)
      * @param owner Domain owner address
      * @param domain Full domain name
      * @dev Internal function called by NameService contracts
@@ -198,7 +210,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     }
 
     /**
-     * @notice Remove domain from address mapping (called by NameService contracts)
+     * @notice Removes domain from address mapping (called by NameService contracts)
      * @param owner Domain owner address
      * @param domain Full domain name
      * @dev Internal function called by NameService contracts

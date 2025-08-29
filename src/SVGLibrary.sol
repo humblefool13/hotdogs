@@ -1,17 +1,28 @@
 // SPDX-License-Identifier: MIT
+/*
+ _                        _      _         __                _  _  _____ 
+| |__   _   _  _ __ ___  | |__  | |  ___  / _|  ___    ___  | |/ ||___ / 
+| '_ \ | | | || '_ ` _ \ | '_ \ | | / _ \| |_  / _ \  / _ \ | || |  |_ \ 
+| | | || |_| || | | | | || |_) || ||  __/|  _|| (_) || (_) || || | ___) |
+|_| |_| \__,_||_| |_| |_||_.__/ |_| \___||_|   \___/  \___/ |_||_||____/ 
+                                                                         
+https://t.me/humblefool13    
+                                                                  
+*/
+
 pragma solidity ^0.8.20;
 
 /**
  * @title SVGLibrary
- * @notice SVG generation library for HotDogs Naming Service NFTs
+ * @notice Generates SVG images for domain NFTs
  * @dev Deployed once and shared across all TLD contracts
  */
 contract SVGLibrary {
     /**
-     * @notice Generate SVG for domain NFT
+     * @notice Generates SVG for a domain NFT
      * @param name Domain name
      * @param tld Top-level domain
-     * @return SVG string
+     * @return SVG markup string
      */
     function generateSVG(
         string memory name,

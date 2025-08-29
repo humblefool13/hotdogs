@@ -1,9 +1,20 @@
 // SPDX-License-Identifier: MIT
+/*
+ _                        _      _         __                _  _  _____ 
+| |__   _   _  _ __ ___  | |__  | |  ___  / _|  ___    ___  | |/ ||___ / 
+| '_ \ | | | || '_ ` _ \ | '_ \ | | / _ \| |_  / _ \  / _ \ | || |  |_ \ 
+| | | || |_| || | | | | || |_) || ||  __/|  _|| (_) || (_) || || | ___) |
+|_| |_| \__,_||_| |_| |_||_.__/ |_| \___||_|   \___/  \___/ |_||_||____/ 
+                                                                         
+https://t.me/humblefool13    
+                                                                  
+*/
+
 pragma solidity ^0.8.20;
 
 /**
  * @title MinHeap
- * @notice A min-heap implementation for managing domain expirations efficiently
+ * @notice Min-heap implementation for managing domain expirations efficiently
  * @dev Provides O(log n) insertions/updates and O(1) access to earliest expiration
  */
 library MinHeap {
@@ -18,7 +29,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Insert a new domain with expiration into the heap
+     * @notice Inserts a new domain with expiration into the heap
      * @param heap The heap storage reference
      * @param domain The domain name
      * @param expiration The expiration timestamp
@@ -35,7 +46,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Remove and return the domain with earliest expiration
+     * @notice Removes and returns the domain with earliest expiration
      * @param heap The heap storage reference
      * @return domain The domain name
      * @return expiration The expiration timestamp
@@ -61,7 +72,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Update the expiration time of an existing domain
+     * @notice Updates the expiration time of an existing domain
      * @param heap The heap storage reference
      * @param domain The domain name
      * @param newExpiration The new expiration timestamp
@@ -87,7 +98,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Get the domain with earliest expiration without removing it
+     * @notice Gets the domain with earliest expiration without removing it
      * @param heap The heap storage reference
      * @return domain The domain name
      * @return expiration The expiration timestamp
@@ -100,7 +111,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Remove a specific domain from the heap
+     * @notice Removes a specific domain from the heap
      * @param heap The heap storage reference
      * @param domain The domain name to remove
      */
@@ -129,7 +140,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Check if a domain exists in the heap
+     * @notice Checks if a domain exists in the heap
      * @param heap The heap storage reference
      * @param domain The domain name to check
      * @return True if domain exists in heap
@@ -142,7 +153,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Get the current size of the heap
+     * @notice Gets the current size of the heap
      * @param heap The heap storage reference
      * @return The number of entries in the heap
      */
@@ -151,7 +162,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Bubble up an element to maintain heap property
+     * @notice Bubbles up an element to maintain heap property
      * @param heap The heap storage reference
      * @param index The index to bubble up from
      */
@@ -168,7 +179,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Bubble down an element to maintain heap property
+     * @notice Bubbles down an element to maintain heap property
      * @param heap The heap storage reference
      * @param index The index to bubble down from
      */
@@ -203,7 +214,7 @@ library MinHeap {
     }
 
     /**
-     * @notice Swap two elements in the heap and update their indices
+     * @notice Swaps two elements in the heap and updates their indices
      * @param heap The heap storage reference
      * @param i First index
      * @param j Second index

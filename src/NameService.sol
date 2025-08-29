@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT
+/*
+ _                        _      _         __                _  _  _____ 
+| |__   _   _  _ __ ___  | |__  | |  ___  / _|  ___    ___  | |/ ||___ / 
+| '_ \ | | | || '_ ` _ \ | '_ \ | | / _ \| |_  / _ \  / _ \ | || |  |_ \ 
+| | | || |_| || | | | | || |_) || ||  __/|  _|| (_) || (_) || || | ___) |
+|_| |_| \__,_||_| |_| |_||_.__/ |_| \___||_|   \___/  \___/ |_||_||____/ 
+                                                                         
+https://t.me/humblefool13    
+                                                                  
+*/
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
@@ -15,7 +26,7 @@ import "./TokenURILibrary.sol";
  * @title NameService
  * @notice Individual TLD contract for the HotDogs Naming Service system
  * @dev Handles domain registrations, NFTs, and domain management for a specific TLD
- * @dev Optimized with MinHeap for efficient expiration management and domainToIndex for O(1) array removal
+ * @dev Uses MinHeap for efficient expiration management and domainToIndex for O(1) array removal
  */
 contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     using Strings for uint256;
@@ -50,10 +61,10 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     mapping(string => uint256) public domainToToken;
     string[] public allDomains;
 
-    // Gas optimization: MinHeap for efficient expiration management
+    // MinHeap for efficient expiration management
     MinHeap.Heap private expirationHeap;
 
-    // Gas optimization: O(1) index lookup for allDomains removal
+    // O(1) index lookup for allDomains removal
     mapping(string => uint256) private domainToIndex; // Maps domain to allDomains index (1-based)
 
     // Constants
@@ -144,19 +155,19 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         uint256 tokenId = _nextTokenId;
         _nextTokenId++;
 
-        // STATE UPDATES FIRST
+        // State updates first
         domains[name] = domainInfo;
         tokenToDomain[tokenId] = name;
         domainToToken[name] = tokenId;
 
-        // Gas optimization: Add to allDomains with index tracking
+        // Add to allDomains with index tracking
         allDomains.push(name);
         domainToIndex[name] = allDomains.length; // 1-based indexing
 
-        // Gas optimization: Add to expiration heap for efficient management
+        // Add to expiration heap for efficient management
         expirationHeap.insert(name, expiration);
 
-        // EXTERNAL CALLS AFTER STATE UPDATES
+        // External calls after state updates
         _safeMint(msg.sender, tokenId);
         _setTokenURI(
             tokenId,
@@ -198,7 +209,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         domain.expiration = domain.expiration + (yearsToRenew * 365 days);
         domain.renewalCount++;
 
-        // Gas optimization: Update expiration in heap
+        // Update expiration in heap
         expirationHeap.updateExpiration(name, domain.expiration);
 
         uint256 tokenId = domainToToken[name];
@@ -294,7 +305,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     }
 
     /**
-     * @notice Check and burn expired domains using optimized heap-based approach
+     * @notice Checks and burns expired domains using optimized heap-based approach
      * @dev Gas optimization: O(k log n) instead of O(n) where k is expired domains
      * @dev Only processes actually expired domains instead of scanning entire array
      */

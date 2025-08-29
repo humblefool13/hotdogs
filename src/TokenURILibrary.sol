@@ -1,4 +1,15 @@
 // SPDX-License-Identifier: MIT
+/*
+ _                        _      _         __                _  _  _____ 
+| |__   _   _  _ __ ___  | |__  | |  ___  / _|  ___    ___  | |/ ||___ / 
+| '_ \ | | | || '_ ` _ \ | '_ \ | | / _ \| |_  / _ \  / _ \ | || |  |_ \ 
+| | | || |_| || | | | | || |_) || ||  __/|  _|| (_) || (_) || || | ___) |
+|_| |_| \__,_||_| |_| |_||_.__/ |_| \___||_|   \___/  \___/ |_||_||____/ 
+                                                                         
+https://t.me/humblefool13    
+                                                                  
+*/
+
 pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -7,21 +18,21 @@ import "./SVGLibrary.sol";
 
 /**
  * @title TokenURILibrary
- * @notice Library for generating token URIs for domain NFTs
- * @dev Helps reduce contract size by moving metadata generation logic to a library
+ * @notice Generates token URIs for domain NFTs
+ * @dev Library contract to reduce main contract size
  */
 library TokenURILibrary {
     using Strings for uint256;
 
     /**
-     * @notice Build token URI for a domain NFT
-     * @param name Domain name
+     * @notice Generates token URI for a domain NFT
+     * @param name Domain name (without TLD)
      * @param tld Top-level domain
-     * @param svgLibrary SVG library contract address
+     * @param svgLibrary Address of SVG library contract
      * @param expiration Domain expiration timestamp
      * @param registrationDate Domain registration timestamp
-     * @param renewalCount Number of times domain was renewed
-     * @return Token URI string
+     * @param renewalCount Number of renewals
+     * @return Base64 encoded token URI
      */
     function buildTokenURI(
         string memory name,
@@ -33,11 +44,11 @@ library TokenURILibrary {
     ) external pure returns (string memory) {
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
 
-        // Generate SVG using the library
+        // Generate SVG and encode to base64
         string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
         string memory imageData = Base64.encode(bytes(svg));
 
-        // Build concise metadata without redundant name repetitions
+        // Build metadata JSON
         string memory json = Base64.encode(
             bytes(
                 string(
