@@ -119,8 +119,12 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         uint256 yearsToRegister
     ) external payable nonReentrant {
         if (!_isValidName(name)) revert InvalidName(name);
-        if (domains[name].owner != address(0))
-            revert DomainAlreadyRegistered(name);
+        if (domains[name].owner != address(0)) {
+            if (domains[name].expiration >= block.timestamp)
+                revert DomainAlreadyRegistered(name);
+            expirationHeap.remove(name);
+            _burnExpiredDomain(name);
+        }
         if (yearsToRegister == 0 || yearsToRegister > MAX_REGISTRATION_YEARS)
             revert InvalidRegistrationPeriod();
 
@@ -196,6 +200,19 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
         // Gas optimization: Update expiration in heap
         expirationHeap.updateExpiration(name, domain.expiration);
+
+        uint256 tokenId = domainToToken[name];
+        _setTokenURI(
+            tokenId,
+            TokenURILibrary.buildTokenURI(
+                name,
+                tld,
+                svgLibrary,
+                domain.expiration,
+                domain.registrationDate,
+                domain.renewalCount
+            )
+        );
 
         _distributeFees(msg.value);
 
@@ -379,15 +396,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             // Update manager mappings
             string memory fullDomain = string(abi.encodePacked(name, ".", tld));
 
-            // Clear main domain for old owner if needed
-            IHNSManager(hnsManager).clearMainDomainIfNeeded(from, fullDomain);
-
             // Remove from old owner and add to new owner
             IHNSManager(hnsManager).removeDomainFromAddress(from, fullDomain);
             IHNSManager(hnsManager).addDomainToAddress(to, fullDomain);
-        } else if (to == address(0) && bytes(name).length > 0) {
-            // Burn case - remove from heap
-            expirationHeap.remove(name);
         }
 
         // Call parent logic (actually performs the transfer/mint/burn)
@@ -542,11 +553,6 @@ interface IHNSManager {
     function addDomainToAddress(address owner, string calldata domain) external;
 
     function removeDomainFromAddress(
-        address owner,
-        string calldata domain
-    ) external;
-
-    function clearMainDomainIfNeeded(
         address owner,
         string calldata domain
     ) external;

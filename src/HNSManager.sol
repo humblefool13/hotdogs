@@ -235,28 +235,4 @@ contract HNSManager is Ownable, ReentrancyGuard {
             }
         }
     }
-
-    /**
-     * @notice Clear main domain for an address (called by NameService contracts during transfers)
-     * @param owner Address whose main domain should be cleared
-     * @param domain Domain being transferred away
-     * @dev Internal function called by NameService contracts during NFT transfers
-     */
-    function clearMainDomainIfNeeded(
-        address owner,
-        string calldata domain
-    ) external nonReentrant onlyNS {
-        // Clear main domain if it was this domain
-        // Gas optimization: Cache keccak256 hash
-        bytes32 domainHash = keccak256(bytes(domain));
-        if (keccak256(bytes(mainDomain[owner])) == domainHash) {
-            delete mainDomain[owner];
-
-            // Auto-assign new main domain if other domains exist
-            string[] storage domains = addressToDomains[owner];
-            if (domains.length > 0) {
-                mainDomain[owner] = domains[0];
-            }
-        }
-    }
 }
