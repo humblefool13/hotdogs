@@ -33,17 +33,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     using MinHeap for MinHeap.Heap;
     using TokenURILibrary for string;
 
-    uint256 public constant PRICE_3_CHAR = 0.012 ether;
-    uint256 public constant PRICE_4_CHAR = 0.01 ether;
-    uint256 public constant PRICE_5_CHAR = 0.008 ether;
-    uint256 public constant PRICE_6_CHAR = 0.006 ether;
-    uint256 public constant PRICE_7_PLUS = 0.004 ether;
-    uint256 public constant MAX_REGISTRATION_YEARS = 10;
-    uint256 public constant MIN_DOMAIN_LENGTH = 3;
-    uint256 public constant MAX_DOMAIN_LENGTH = 20;
-    address public constant devFeeRecipient =
-        0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679;
-
     string public tld;
     address public immutable hnsManager;
     address public immutable svgLibrary;
@@ -66,11 +55,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
     // O(1) index lookup for allDomains removal
     mapping(string => uint256) private domainToIndex; // Maps domain to allDomains index (1-based)
-
-    // Constants
-    uint256 public constant DEV_FEE_PERCENTAGE = 25; // 25%
-    uint256 public constant MAX_CLEANUP_BATCH = 20; // Max domains to cleanup in one call
-    uint256 public constant ROYALTY_PERCENTAGE = 250; // 2.5% (basis points)
 
     event DomainRegistered(
         string indexed name,
@@ -113,10 +97,10 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     )
         ERC721(
             string(abi.encodePacked("HotDogs Naming Service", " - ", _tld)),
-            string(abi.encodePacked(_toUpper(_tld)))
+            string(abi.encodePacked(_tld._toUpper()))
         )
     {
-        _toLower(_tld);
+        _tld._toLower();
         if (bytes(_tld).length == 0) revert BadTLD();
         if (_hnsManager == address(0)) revert BadMgr();
         if (_svgLibrary == address(0)) revert BadSVG();
@@ -136,7 +120,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             expirationHeap.remove(name);
             _burnExpiredDomain(name);
         }
-        if (yearsToRegister == 0 || yearsToRegister > MAX_REGISTRATION_YEARS)
+        if (yearsToRegister == 0 || yearsToRegister > 10)
             revert InvalidRegistrationPeriod();
 
         uint256 price = _calculatePrice(name, yearsToRegister);
@@ -168,13 +152,15 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         expirationHeap.insert(name, expiration);
 
         // External calls after state updates
+
+        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
         _safeMint(msg.sender, tokenId);
         _setTokenURI(
             tokenId,
             TokenURILibrary.buildTokenURI(
                 name,
                 tld,
-                svgLibrary,
+                svg,
                 domainInfo.expiration,
                 domainInfo.registrationDate,
                 domainInfo.renewalCount
@@ -199,7 +185,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender || domain.expiration < block.timestamp)
             revert Unauthorized();
-        if (yearsToRenew == 0 || yearsToRenew > MAX_REGISTRATION_YEARS)
+        if (yearsToRenew == 0 || yearsToRenew > 10)
             revert InvalidRegistrationPeriod();
 
         uint256 price = _calculatePrice(name, yearsToRenew);
@@ -212,13 +198,15 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         // Update expiration in heap
         expirationHeap.updateExpiration(name, domain.expiration);
 
+        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
+
         uint256 tokenId = domainToToken[name];
         _setTokenURI(
             tokenId,
             TokenURILibrary.buildTokenURI(
                 name,
                 tld,
-                svgLibrary,
+                svg,
                 domain.expiration,
                 domain.registrationDate,
                 domain.renewalCount
@@ -311,7 +299,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
      */
     function checkAndBurnExpiredDomains() external nonReentrant {
         // Bounded cleanup to prevent gas bombs
-        cleanupExpiredDomains(MAX_CLEANUP_BATCH);
+        cleanupExpiredDomains(20);
     }
 
     /**
@@ -319,8 +307,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
      * @param maxDomains Maximum number of expired domains to process in this call (capped at 20)
      */
     function cleanupExpiredDomains(uint256 maxDomains) public nonReentrant {
-        if (maxDomains == 0 || maxDomains > MAX_CLEANUP_BATCH)
-            revert BadBatch();
+        if (maxDomains == 0 || maxDomains > 20) revert BadBatch();
 
         uint256 cleaned = 0;
         while (expirationHeap.size() > 0 && cleaned < maxDomains) {
@@ -447,65 +434,38 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     function _calculatePrice(
         string memory name,
         uint256 _years
-    ) internal pure returns (uint256) {
+    ) public pure returns (uint256) {
         uint256 basePrice;
         uint256 length = bytes(name).length;
 
-        if (length == 3) basePrice = PRICE_3_CHAR;
-        else if (length == 4) basePrice = PRICE_4_CHAR;
-        else if (length == 5) basePrice = PRICE_5_CHAR;
-        else if (length == 6) basePrice = PRICE_6_CHAR;
-        else basePrice = PRICE_7_PLUS;
+        if (length == 3) basePrice = 0.012 ether;
+        else if (length == 4) basePrice = 0.01 ether;
+        else if (length == 5) basePrice = 0.008 ether;
+        else if (length == 6) basePrice = 0.006 ether;
+        else basePrice = 0.004 ether;
 
         return basePrice * _years;
     }
 
-    function _toUpper(
-        string memory input
-    ) internal pure returns (string memory) {
-        bytes memory b = bytes(input);
-        for (uint i = 0; i < b.length; i++) {
-            bytes1 char = b[i];
-            if (char >= 0x61 && char <= 0x7A) {
-                b[i] = bytes1(uint8(char) - 32);
-            }
-        }
-        return string(b);
-    }
-
-    function _toLower(
-        string memory input
-    ) internal pure returns (string memory) {
-        bytes memory b = bytes(input);
-        for (uint i = 0; i < b.length; i++) {
-            bytes1 char = b[i];
-            if (char >= 0x41 && char <= 0x5A) {
-                b[i] = bytes1(uint8(char) + 32);
-            }
-        }
-        return string(b);
-    }
-
     function _isValidName(string memory name) internal pure returns (bool) {
         bytes memory nameBytes = bytes(name);
-        if (
-            nameBytes.length < MIN_DOMAIN_LENGTH ||
-            nameBytes.length > MAX_DOMAIN_LENGTH
-        ) {
+        if (nameBytes.length < 3 || nameBytes.length > 20) {
             return false;
         }
 
         for (uint i = 0; i < nameBytes.length; i++) {
             bytes1 char = nameBytes[i];
+            // Check for leading hyphen
             if (i == 0 && char == 0x2D) return false;
+            // Check for trailing hyphen
             if (i == nameBytes.length - 1 && char == 0x2D) return false;
-
+            // Check for consecutive hyphens
             if (char == 0x2D) {
                 if (i > 0 && nameBytes[i - 1] == 0x2D) return false;
             } else if (
-                !(char >= 0x30 && char <= 0x39) &&
-                !(char >= 0x41 && char <= 0x5A) &&
-                !(char >= 0x61 && char <= 0x7A)
+                // Only allow lowercase letters (a-z) and numbers (0-9)
+                !(char >= 0x61 && char <= 0x7A) &&
+                !(char >= 0x30 && char <= 0x39)
             ) {
                 return false;
             }
@@ -515,13 +475,13 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     }
 
     function _distributeFees(uint256 amount) internal {
-        uint256 devFeeAmount = (amount * DEV_FEE_PERCENTAGE) / 100;
+        uint256 devFeeAmount = (amount * 25) / 100;
         uint256 managerAmount = amount - devFeeAmount;
 
         if (devFeeAmount > 0) {
-            (bool success, ) = payable(devFeeRecipient).call{
-                value: devFeeAmount
-            }("");
+            (bool success, ) = payable(
+                0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679
+            ).call{value: devFeeAmount}("");
             if (!success) revert TransferFailed();
         }
 
@@ -568,7 +528,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         uint256 salePrice
     ) external view override returns (address receiver, uint256 royaltyAmount) {
         if (_ownerOf(tokenId) == address(0)) revert NoToken();
-        return (hnsManager, (salePrice * ROYALTY_PERCENTAGE) / 10000);
+        return (hnsManager, (salePrice * 250) / 10000);
     }
 }
 

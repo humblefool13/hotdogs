@@ -14,7 +14,6 @@ pragma solidity ^0.8.20;
 
 import "@openzeppelin/contracts/utils/Strings.sol";
 import "@openzeppelin/contracts/utils/Base64.sol";
-import "./SVGLibrary.sol";
 
 /**
  * @title TokenURILibrary
@@ -28,7 +27,7 @@ library TokenURILibrary {
      * @notice Generates token URI for a domain NFT
      * @param name Domain name (without TLD)
      * @param tld Top-level domain
-     * @param svgLibrary Address of SVG library contract
+     * @param svg SVG string
      * @param expiration Domain expiration timestamp
      * @param registrationDate Domain registration timestamp
      * @param renewalCount Number of renewals
@@ -37,15 +36,14 @@ library TokenURILibrary {
     function buildTokenURI(
         string memory name,
         string memory tld,
-        address svgLibrary,
+        string memory svg,
         uint256 expiration,
         uint256 registrationDate,
         uint256 renewalCount
     ) external pure returns (string memory) {
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
 
-        // Generate SVG and encode to base64
-        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
+        // Encode SVG to base64
         string memory imageData = Base64.encode(bytes(svg));
 
         // Build metadata JSON
@@ -85,5 +83,31 @@ library TokenURILibrary {
         );
 
         return string(abi.encodePacked("data:application/json;base64,", json));
+    }
+
+    function _toUpper(
+        string memory input
+    ) external pure returns (string memory) {
+        bytes memory b = bytes(input);
+        for (uint i = 0; i < b.length; i++) {
+            bytes1 char = b[i];
+            if (char >= 0x61 && char <= 0x7A) {
+                b[i] = bytes1(uint8(char) - 32);
+            }
+        }
+        return string(b);
+    }
+
+    function _toLower(
+        string memory input
+    ) external pure returns (string memory) {
+        bytes memory b = bytes(input);
+        for (uint i = 0; i < b.length; i++) {
+            bytes1 char = b[i];
+            if (char >= 0x41 && char <= 0x5A) {
+                b[i] = bytes1(uint8(char) + 32);
+            }
+        }
+        return string(b);
     }
 }

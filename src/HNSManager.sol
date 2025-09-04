@@ -55,17 +55,14 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Error when TLD already exists
     error TLDExists();
 
-    /// @notice Error when TLD does not exist
-    error TLDNotFound();
-
-    /// @notice Error when TLD is invalid
+    /// @notice Error when TLD is invalid/does not exist
     error InvalidTLD();
 
     /// @notice Error when transfer fails
     error TransferFailed();
 
     /// @notice Error when domain not found
-    error DomainNotFound();
+    error NoDomain();
 
     /// @notice Error when no funds available
     error NoFunds();
@@ -74,8 +71,12 @@ contract HNSManager is Ownable, ReentrancyGuard {
     error UnAuth();
 
     modifier onlyNS() {
-        if (!validNSAddress[msg.sender]) revert UnAuth();
+        _onlyNS();
         _;
+    }
+
+    function _onlyNS() internal view {
+        if (!validNSAddress[msg.sender]) revert UnAuth();
     }
 
     /**
@@ -92,8 +93,8 @@ contract HNSManager is Ownable, ReentrancyGuard {
      * @dev Only callable by owner
      */
     function addTLD(string calldata tld) external onlyOwner nonReentrant {
-        if (bytes(tld).length == 0 || bytes(tld).length > 10)
-            revert InvalidTLD();
+        // Validate TLD format (3-10 lowercase letters only)
+        if (!tld.isValidTLD()) revert InvalidTLD();
         if (tldContracts[tld] != address(0)) revert TLDExists();
 
         // Deploy new NameService contract for this TLD
@@ -129,15 +130,18 @@ contract HNSManager is Ownable, ReentrancyGuard {
      * @dev Only callable by domain owner
      */
     function setMainDomain(string calldata domain) external nonReentrant {
-        // Parse domain to get TLD
+        // Parse domain to get TLD and name
         string memory tld = domain.extractTLD();
-        if (tldContracts[tld] == address(0)) revert TLDNotFound();
+        string memory name = domain.extractName();
+
+        // Validate TLD and name
+        if (!tld.isValidTLD()) revert InvalidTLD();
+        if (!name.isValidDomainName()) revert InvalidTLD();
+        if (tldContracts[tld] == address(0)) revert InvalidTLD();
 
         // Check if caller owns the domain
-        string memory name = domain.extractName();
         NameService nameService = NameService(tldContracts[tld]);
-        if (nameService.getDomainOwner(name) != msg.sender)
-            revert DomainNotFound();
+        if (nameService.getDomainOwner(name) != msg.sender) revert NoDomain();
 
         mainDomain[msg.sender] = domain;
     }
@@ -186,7 +190,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         )
     {
         address contractAddress = tldContracts[tld];
-        if (contractAddress == address(0)) revert TLDNotFound();
+        if (contractAddress == address(0)) revert InvalidTLD();
 
         return NameService(contractAddress).resolveDomain(name);
     }
