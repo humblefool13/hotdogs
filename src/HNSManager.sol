@@ -43,6 +43,9 @@ contract HNSManager is Ownable, ReentrancyGuard {
     /// @notice Address to all domains mapping
     mapping(address => string[]) public addressToDomains;
 
+    /// @notice Address to all domains mapping
+    mapping(address => mapping(string => uint256)) private domainToIndex;
+
     /// @notice Valid NameService contract addresses
     mapping(address => bool) public validNSAddress;
 
@@ -206,7 +209,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         string calldata domain
     ) external nonReentrant onlyNS {
         addressToDomains[owner].push(domain);
-
+        domainToIndex[owner][domain] = addressToDomains[owner].length; // 1-based indexing
         // Auto-assign main domain if this is the only domain or first domain
         if (addressToDomains[owner].length == 1) {
             mainDomain[owner] = domain;
@@ -224,28 +227,15 @@ contract HNSManager is Ownable, ReentrancyGuard {
         string calldata domain
     ) external nonReentrant onlyNS {
         string[] storage domains = addressToDomains[owner];
-        uint256 index = type(uint256).max;
-
-        // Gas optimization: Cache keccak256 hash outside the loop
-        bytes32 domainHash = keccak256(bytes(domain));
-
-        for (uint i = 0; i < domains.length; i++) {
-            if (keccak256(bytes(domains[i])) == domainHash) {
-                index = i;
-                break;
-            }
-        }
-
+        uint256 index = domainToIndex[owner][domain] - 1;
         if (index < domains.length) {
             domains[index] = domains[domains.length - 1];
+            domainToIndex[owner][domains[index]] = index + 1;
             domains.pop();
+            delete domainToIndex[owner][domain];
         }
-
-        // Clear main domain if it was this domain
-        if (keccak256(bytes(mainDomain[owner])) == domainHash) {
+        if (keccak256(bytes(mainDomain[owner])) == keccak256(bytes(domain))) {
             delete mainDomain[owner];
-
-            // Auto-assign new main domain if other domains exist
             if (domains.length > 0) {
                 mainDomain[owner] = domains[0];
             }

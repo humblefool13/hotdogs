@@ -87,7 +87,7 @@ library TokenURILibrary {
 
     function _toUpper(
         string memory input
-    ) external pure returns (string memory) {
+    ) internal pure returns (string memory) {
         bytes memory b = bytes(input);
         for (uint i = 0; i < b.length; i++) {
             bytes1 char = b[i];
@@ -100,7 +100,7 @@ library TokenURILibrary {
 
     function _toLower(
         string memory input
-    ) external pure returns (string memory) {
+    ) internal pure returns (string memory) {
         bytes memory b = bytes(input);
         for (uint i = 0; i < b.length; i++) {
             bytes1 char = b[i];
