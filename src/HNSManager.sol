@@ -129,14 +129,14 @@ contract HNSManager is Ownable, ReentrancyGuard {
 
     /**
      * @notice Sets main domain for an address
-     * @param domain Full domain (name.tld)
+     * @param name Name of the domain
+     * @param tld TLD of the domain
      * @dev Only callable by domain owner
      */
-    function setMainDomain(string calldata domain) external nonReentrant {
-        // Parse domain to get TLD and name
-        string memory tld = domain.extractTLD();
-        string memory name = domain.extractName();
-
+    function setMainDomain(
+        string calldata name,
+        string calldata tld
+    ) external nonReentrant {
         // Validate TLD and name
         if (!tld.isValidTLD()) revert InvalidTLD();
         if (!name.isValidDomainName()) revert InvalidTLD();
@@ -146,7 +146,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
         NameService nameService = NameService(tldContracts[tld]);
         if (nameService.getDomainOwner(name) != msg.sender) revert NoDomain();
 
-        mainDomain[msg.sender] = domain;
+        mainDomain[msg.sender] = string(abi.encodePacked(name, ".", tld));
     }
 
     /**
