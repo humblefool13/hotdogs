@@ -79,7 +79,7 @@ library DomainUtils {
     }
 
     /**
-     * @notice Validates if domain name is valid (3-20 lowercase letters, numbers, hyphens with restrictions)
+     * @notice Validates if domain name is valid (3-10 lowercase letters, numbers, hyphens with restrictions)
      * @param name Domain name to validate
      * @return True if valid domain name
      */
@@ -87,7 +87,7 @@ library DomainUtils {
         string memory name
     ) external pure returns (bool) {
         bytes memory nameBytes = bytes(name);
-        if (nameBytes.length < 3 || nameBytes.length > 20) {
+        if (nameBytes.length < 3 || nameBytes.length > 10) {
             return false;
         }
 

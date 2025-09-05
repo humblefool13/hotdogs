@@ -449,7 +449,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
     function _isValidName(string memory name) internal pure returns (bool) {
         bytes memory nameBytes = bytes(name);
-        if (nameBytes.length < 3 || nameBytes.length > 20) {
+        if (nameBytes.length < 3 || nameBytes.length > 10) {
             return false;
         }
 
