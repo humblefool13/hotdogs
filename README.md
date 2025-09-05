@@ -1,234 +1,311 @@
 # HotDogs Naming Service (HNS)
 
-A professional, gas-optimized decentralized naming system built on Ethereum that provides unified domain resolution across multiple TLDs, specifically designed for the HotDogs NFT project.
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Solidity](https://img.shields.io/badge/Solidity-^0.8.20-blue)](https://soliditylang.org/)
+[![Foundry](https://img.shields.io/badge/Built%20with-Foundry-FFDB1C.svg)](https://getfoundry.sh/)
 
-## Overview
+A professional, gas-optimized decentralized naming system that provides unified domain resolution across multiple TLDs with ERC721 NFT integration. Built with security, efficiency, and scalability in mind.
 
-The HotDogs Naming Service consists of three main contracts:
+## 🚀 Features
 
-1. **HotDogsNamingService** - Central manager contract that handles TLD deployment and provides unified resolution
-2. **NameService** - Individual TLD contracts that manage domain registrations, NFTs, and domain operations
-3. **SVGLibrary** - Shared SVG generation library for gas optimization
-
-## Architecture
-
-```
-HotDogsNamingService (Manager Contract)
-├── SVG Library (Deployed once, shared)
-├── TLD: "hotdogs" → NameService Contract Address
-├── TLD: "rise" → NameService Contract Address
-└── ... (more TLDs)
-
-NameService Contracts (per TLD)
-├── Domain registrations
-├── NFT minting with HotDogs design
-├── Domain management
-└── Fee distribution
-```
-
-## Features
-
-### Core Functionality
 - **Multi-TLD Support** - Register and manage multiple top-level domains
-- **NFT Integration** - Each domain is represented as an ERC721 NFT with HotDogs design
+- **ERC721 NFT Integration** - Each domain is represented as a unique NFT with custom HotDogs design
 - **Unified Resolution** - Single interface to resolve domains across all TLDs
-- **Automatic Fee Distribution** - 25% to dev fee recipient, 75% to manager contract
+- **Gas Optimized** - Efficient data structures and shared libraries reduce deployment and transaction costs
+- **Automatic Fee Distribution** - 25% to development team, 75% to manager contract
 - **Main Domain Concept** - Users can set a primary domain for reverse lookup
 - **Global Reverse Lookup** - Find domains across all TLDs with one call
+- **Expiration Management** - Efficient heap-based system for domain expiration handling
+- **Marketplace Compatible** - Full ERC721 compliance with royalty support (EIP-2981)
 
-### Domain Management
-- Domain registration with configurable duration (1-10 years)
-- Domain renewal and transfer
-- Text record management
-- Reverse lookup capabilities
-- Expiration handling with automatic NFT burning
+## 📋 Table of Contents
 
-### Pricing Structure
-- **3 characters**: 0.012 ETH/year
-- **4 characters**: 0.01 ETH/year
-- **5 characters**: 0.008 ETH/year
-- **6 characters**: 0.006 ETH/year
-- **7+ characters**: 0.004 ETH/year
+- [Architecture](#architecture)
+- [Smart Contracts](#smart-contracts)
+- [Usage](#usage)
+- [Security](#security)
+- [API Reference](#api-reference)
+- [License](#license)
 
-## Smart Contracts
+## 🏗️ Architecture
 
-### HotDogsNamingService.sol
+The HotDogs Naming Service consists of five main components:
 
-The central manager contract that:
-- Deploys SVG library and new TLD contracts
-- Maintains TLD registry with main domain concept
-- Provides unified resolution interface
-- Handles fee withdrawals
+```
+HNSManager (Central Manager)
+├── SVG Library (Shared, deployed once)
+├── DomainUtils Library (Validation utilities)
+├── TokenURILibrary (Metadata generation)
+├── MinHeap Library (Expiration management)
+├── TLD: "hotdogs" → NameService Contract
+├── TLD: "rise" → NameService Contract
+└── ... (additional TLDs)
+
+NameService Contracts (per TLD)
+├── Domain registrations & renewals
+├── ERC721 NFT minting with custom metadata
+├── Domain ownership management
+├── Expiration handling with automatic cleanup
+└── Fee distribution to manager
+```
+
+### Core Components
+
+1. **HNSManager** - Central orchestrator managing TLD deployments and global resolution
+2. **NameService** - Individual TLD contracts handling domain operations and NFT minting
+3. **SVGLibrary** - Shared SVG generation for consistent NFT artwork
+4. **DomainUtils** - Domain validation and parsing utilities
+5. **TokenURILibrary** - Metadata generation for NFT marketplaces
+6. **MinHeap** - Efficient expiration management system
+
+## 💰 Pricing Structure
+
+| Domain Length | Price per Year | Example |
+|---------------|----------------|---------|
+| 3 characters  | 0.012 ETH      | `abc.hotdogs` |
+| 4 characters  | 0.01 ETH       | `test.hotdogs` |
+| 5 characters  | 0.008 ETH      | `hello.hotdogs` |
+| 6 characters  | 0.006 ETH      | `domain.hotdogs` |
+| 7+ characters | 0.004 ETH      | `mycompany.hotdogs` |
+
+## 🔧 Smart Contracts
+
+### HNSManager.sol
+
+**Purpose**: Central orchestrator managing TLD deployments and global resolution
+
+**Key Features**:
+- Deploys and manages SVG library
+- Creates new TLD contracts on-demand
+- Maintains global TLD registry
+- Provides unified domain resolution interface
 - Manages global address-to-domain mappings
+- Handles main domain concept for reverse lookup
 
-**Key Functions:**
-- `addTLD(string tld)` - Deploy new TLD contract
-- `removeTLD(string tld)` - Remove TLD and clear mappings
-- `resolve(string name, string tld)` - Unified domain resolution
-- `withdrawFunds()` - Withdraw entire contract balance
-- `setMainDomain(string domain)` - Set primary domain for address
-- `reverseLookup(address addr)` - Global reverse lookup across all TLDs
+**Key Functions**:
+```solidity
+function addTLD(string calldata tld) external onlyOwner
+function resolve(string calldata name, string calldata tld) external view returns (address, uint256, address, uint256)
+function setMainDomain(string calldata domain) external
+function reverseLookup(address addr) external view returns (string memory)
+function withdrawFunds() external onlyOwner
+```
 
 ### NameService.sol
 
-Individual TLD contracts that:
-- Handle domain registrations and renewals
-- Mint ERC721 NFTs for domains with HotDogs design
-- Manage domain ownership and transfers
-- Handle fee distribution
-- Integrate with SVG library for image generation
+**Purpose**: Individual TLD contract handling domain operations and NFT minting
 
-**Key Functions:**
-- `register(string name, uint256 years, string record)` - Register new domain
-- `renew(string name, uint256 years)` - Renew domain registration
-- `transferDomain(string name, address to)` - Transfer domain ownership
-- `setRecord(string name, string record)` - Set domain text record
-- `burnExpiredDomain(string name)` - Burn expired domain NFT
+**Key Features**:
+- Domain registration and renewal (1-10 years)
+- ERC721 NFT minting with custom metadata
+- Domain ownership management and transfers
+- Automatic expiration handling with heap-based cleanup
+- Fee distribution (25% dev, 75% manager)
+- EIP-2981 royalty support for marketplaces
+
+**Key Functions**:
+```solidity
+function register(string calldata name, uint256 yearsToRegister) external payable
+function renew(string calldata name, uint256 yearsToRenew) external payable
+function transferDomain(string calldata name, address to) external
+function isDomainAvailable(string calldata name) external view returns (bool)
+function getDomainInfo(string calldata name) external view returns (address, uint256, uint256, uint256)
+function cleanupExpiredDomains(uint256 maxDomains) external
+```
 
 ### SVGLibrary.sol
 
-Shared SVG generation library that:
-- Generates HotDogs-themed NFT images
+**Purpose**: Shared SVG generation for consistent NFT artwork
+
+**Key Features**:
+- Generates HotDogs-themed SVG images
 - Reduces contract size and gas costs
 - Provides consistent visual design across all TLDs
+- Pure function implementation for gas efficiency
 
-## Deployment
+### DomainUtils.sol
 
-### Prerequisites
-- Foundry installed
-- Private key with sufficient ETH for deployment
-- Environment variables configured
+**Purpose**: Domain validation and parsing utilities
 
-### Environment Setup
-```bash
-# Create .env file
-echo "PRIVATE_KEY=your_private_key_here" > .env
-```
+**Key Features**:
+- TLD validation (3-10 lowercase letters)
+- Domain name validation (3-10 chars, alphanumeric + hyphens)
+- Domain parsing (extract name/TLD from full domain)
+- Input sanitization and format checking
 
-### Deploy Contracts
-```bash
-# Deploy to local network
-forge script script/Deploy.s.sol --rpc-url http://localhost:8545 --broadcast
+### TokenURILibrary.sol
 
-# Deploy to testnet
-forge script script/Deploy.s.sol --rpc-url $RPC_URL --broadcast --verify
-```
+**Purpose**: Metadata generation for NFT marketplaces
 
-## Usage Examples
+**Key Features**:
+- Generates ERC721-compliant token URIs
+- Base64 encoding for SVG images
+- Rich metadata with domain information
+- Marketplace-compatible JSON structure
 
-### Adding a New TLD
+### MinHeap.sol
+
+**Purpose**: Efficient expiration management system
+
+**Key Features**:
+- O(log n) insertions and updates
+- O(1) access to earliest expiration
+- Efficient domain removal and updates
+- Bounded cleanup to prevent gas bombs
+
+## 📖 Usage
+
+### Basic Operations
+
+#### 1. Adding a New TLD
 ```solidity
 // Only contract owner can add TLDs
-hotDogsNamingService.addTLD("dao");
+HNSManager manager = HNSManager(managerAddress);
+manager.addTLD("rise");
 ```
 
-### Registering a Domain
+#### 2. Registering a Domain
 ```solidity
-// Register "alice.hotdogs" for 2 years with a record
-nameService.register("alice", 2, "Hello World");
+// Register "alice.hotdogs" for 2 years
+NameService nameService = NameService(tldContractAddress);
+nameService.register{value: 0.02 ether}("alice", 2);
 ```
 
-### Setting Main Domain
+#### 3. Renewing a Domain
 ```solidity
-// Set primary domain for reverse lookup
-hotDogsNamingService.setMainDomain("alice.hotdogs");
+// Renew "alice.hotdogs" for 1 additional year
+nameService.renew{value: 0.01 ether}("alice", 1);
 ```
 
-### Global Reverse Lookup
-```solidity
-// Get main domain or first available domain for an address
-string memory domain = hotDogsNamingService.reverseLookup(userAddress);
-```
-
-### Resolving a Domain
-```solidity
-// Get domain information
-(address owner, uint256 expiration, address nft) = hotDogsNamingService.resolve("alice", "hotdogs");
-```
-
-### Transferring Domain Ownership
+#### 4. Transferring Domain Ownership
 ```solidity
 // Transfer domain to new owner
 nameService.transferDomain("alice", newOwnerAddress);
 ```
 
-## NFT Features
-
-### Industry Standard Implementation
-- **ERC721 Compliant** - Fully compatible with all marketplaces
-- **Separate Collections** - Each TLD is a distinct NFT collection
-- **Rich Metadata** - Comprehensive domain information in token URI
-- **Automatic Expiration** - NFTs are burned when domains expire
-- **Transfer Integration** - NFT transfer automatically updates domain ownership
-
-### Metadata Structure
-```json
-{
-  "name": "alice.hotdogs",
-  "description": "A domain on the HotDogs Naming Service",
-  "image": "data:image/svg+xml;base64,...",
-  "external_url": "https://hotdogs.xyz",
-  "attributes": [
-    {"trait_type": "TLD", "value": "hotdogs"},
-    {"trait_type": "Name Length", "value": "5"},
-    {"trait_type": "Registration Date", "value": "1234567890"},
-    {"trait_type": "Expiration Date", "value": "1234567890"},
-    {"trait_type": "Renewal Count", "value": "0"},
-    {"trait_type": "Record", "value": "Hello World"}
-  ],
-  "properties": {
-    "files": [{"uri": "data:image/svg+xml;base64,...", "type": "image/svg+xml"}],
-    "category": "domain",
-    "domain": "alice.hotdogs",
-    "tld": "hotdogs",
-    "name": "alice",
-    "record": "Hello World"
-  }
-}
+#### 5. Setting Main Domain
+```solidity
+// Set primary domain for reverse lookup
+manager.setMainDomain("alice.hotdogs");
 ```
 
-## Security Features
+### Advanced Operations
 
+#### Global Reverse Lookup
+```solidity
+// Get main domain or first available domain for an address
+string memory domain = manager.reverseLookup(userAddress);
+```
+
+#### Domain Resolution
+```solidity
+// Get complete domain information
+(address owner, uint256 expiration, address nftAddress, uint256 tokenId) = 
+    manager.resolve("alice", "hotdogs");
+```
+
+#### Checking Domain Availability
+```solidity
+// Check if domain is available for registration
+bool available = nameService.isDomainAvailable("alice");
+```
+
+#### Getting Domain Information
+```solidity
+// Get detailed domain information
+(address owner, uint256 expiration, uint256 registrationDate, uint256 renewalCount) = 
+    nameService.getDomainInfo("alice");
+```
+
+### NFT Operations
+
+#### Transferring Domain NFT
+```solidity
+// Transfer the NFT (automatically updates domain ownership)
+IERC721(nameServiceAddress).transferFrom(from, to, tokenId);
+```
+
+#### Checking Royalty Information
+```solidity
+// Get royalty information for marketplace integration
+(address receiver, uint256 royaltyAmount) = nameService.royaltyInfo(tokenId, salePrice);
+```
+
+## 🔒 Security Features
+
+### Access Control
 - **Ownable Contracts** - Restricted access to management functions
-- **Input Validation** - Comprehensive domain name validation
-- **Reentrancy Protection** - Safe external calls
-- **Access Control** - Owner-only functions for critical operations
-- **Error Handling** - Custom errors for gas optimization
-- **Contract Verification** - Only authorized contracts can update mappings
+- **Role-based Permissions** - Only authorized contracts can update mappings
+- **Input Validation** - Comprehensive domain name and TLD validation
+- **Reentrancy Protection** - Safe external calls with `nonReentrant` modifier
 
-## Gas Optimization
+### Error Handling
+- **Custom Errors** - Gas-optimized error handling instead of require statements
+- **Input Sanitization** - Domain name validation prevents malicious inputs
+- **Overflow Protection** - Safe math operations throughout
+- **State Validation** - Comprehensive checks before state changes
 
-- **SVG Library** - Shared across all TLD contracts
-- **Efficient Data Structures** - Optimized mappings and arrays
-- **Minimal Storage Operations** - Reduced gas costs
-- **Custom Errors** - Instead of require statements
-- **Batch Operations** - Where possible
+### Contract Security
+- **Immutable References** - Critical addresses are immutable after deployment
+- **Bounded Operations** - Limited batch operations to prevent gas bombs
+- **Expiration Handling** - Automatic cleanup prevents storage bloat
+- **Transfer Safety** - Domain ownership updates on NFT transfers
 
-## Testing
+## ⚡ Gas Optimization
 
-```bash
-# Run all tests
-forge test
+### Architecture Optimizations
+- **Shared Libraries** - SVG and utility libraries reduce contract size
+- **Efficient Data Structures** - MinHeap for O(log n) expiration management
+- **Minimal Storage Operations** - Optimized mappings and arrays
+- **Batch Operations** - Bounded cleanup operations
 
-# Run with coverage
-forge coverage
+### Code Optimizations
+- **Custom Errors** - More gas-efficient than require statements
+- **Pure Functions** - Library functions use minimal gas
+- **Packed Structs** - Optimized struct layouts
+- **Efficient Loops** - Minimal iterations in validation functions
 
-# Run specific test
-forge test --match-test testDomainRegistration
-```
+## 📚 API Reference
 
-## License
+### HNSManager Contract
 
-MIT License - see LICENSE file for details.
+| Function | Visibility | Description |
+|----------|------------|-------------|
+| `addTLD(string)` | external | Deploy new TLD contract |
+| `resolve(string, string)` | external | Resolve domain to owner info |
+| `setMainDomain(string)` | external | Set primary domain for address |
+| `reverseLookup(address)` | external | Get main domain for address |
+| `withdrawFunds()` | external | Withdraw accumulated fees |
 
-## Contributing
+### NameService Contract
 
-1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Add tests
-5. Submit a pull request
+| Function | Visibility | Description |
+|----------|------------|-------------|
+| `register(string, uint256)` | external payable | Register new domain |
+| `renew(string, uint256)` | external payable | Renew domain registration |
+| `transferDomain(string, address)` | external | Transfer domain ownership |
+| `isDomainAvailable(string)` | external view | Check domain availability |
+| `getDomainInfo(string)` | external view | Get domain details |
+| `cleanupExpiredDomains(uint256)` | external | Clean up expired domains |
 
-## Support
+## 📄 License
 
-For questions and support, please open an issue on GitHub.
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+- **Documentation**: Check this README and inline code comments
+- **Issues**: Open an issue on [GitHub](https://github.com/humblefool13/hotdogs/issues)
+- **Discussions**: Use GitHub Discussions for questions and ideas
+- **Security**: Report security issues privately via [Telegram](https://t.me/humblefool13)
+
+## 🙏 Acknowledgments
+
+- Built with [Foundry](https://getfoundry.sh/) framework
+- Uses [OpenZeppelin](https://openzeppelin.com/) contracts for security
+- Inspired by modern naming service architectures
+- Designed for the HotDogs NFT community
+
+---
+
+**Made with ❤️ for the HotDogs community**

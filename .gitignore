@@ -20,8 +20,7 @@ node_modules/
 
 broadcast/*
 
-hoodedDomains.sol
 .gitignore
 
-
-*.t.sol
+install
+install.log
