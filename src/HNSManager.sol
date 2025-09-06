@@ -207,7 +207,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function addDomainToAddress(
         address owner,
         string calldata domain
-    ) external nonReentrant onlyNS {
+    ) external onlyNS {
         addressToDomains[owner].push(domain);
         domainToIndex[owner][domain] = addressToDomains[owner].length; // 1-based indexing
         // Auto-assign main domain if this is the only domain or first domain
@@ -225,7 +225,7 @@ contract HNSManager is Ownable, ReentrancyGuard {
     function removeDomainFromAddress(
         address owner,
         string calldata domain
-    ) external nonReentrant onlyNS {
+    ) external onlyNS {
         string[] storage domains = addressToDomains[owner];
         uint256 index = domainToIndex[owner][domain] - 1;
         if (index < domains.length) {
