@@ -293,16 +293,6 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     }
 
     /**
-     * @notice Checks and burns expired domains using optimized heap-based approach
-     * @dev Gas optimization: O(k log n) instead of O(n) where k is expired domains
-     * @dev Only processes actually expired domains instead of scanning entire array
-     */
-    function checkAndBurnExpiredDomains() external nonReentrant {
-        // Bounded cleanup to prevent gas bombs
-        cleanupExpiredDomains(20);
-    }
-
-    /**
      * @notice Bounded batch cleanup of expired domains to avoid unbounded gas
      * @param maxDomains Maximum number of expired domains to process in this call (capped at 20)
      */
