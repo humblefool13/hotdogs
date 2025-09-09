@@ -57,22 +57,21 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     mapping(string => uint256) private domainToIndex; // Maps domain to allDomains index (1-based)
 
     event DomainRegistered(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
-        uint256 tokenId,
         uint256 expiration
     );
     event DomainRenewed(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
         uint256 newExpiration
     );
     event DomainTransferred(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed from,
         address indexed to
     );
-    event DomainExpired(string indexed name, address indexed previousOwner);
+    event DomainExpired(uint256 indexed tokenId, address indexed previousOwner);
     event ExpiredDomainsProcessed(uint256 cleaned);
 
     error DomainAlreadyRegistered(string name);
@@ -173,7 +172,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
         _distributeFees(msg.value);
 
-        emit DomainRegistered(name, msg.sender, tokenId, expiration);
+        emit DomainRegistered(tokenId, msg.sender, expiration);
     }
 
     function renew(
@@ -215,7 +214,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
 
         _distributeFees(msg.value);
 
-        emit DomainRenewed(name, msg.sender, domain.expiration);
+        emit DomainRenewed(tokenId, msg.sender, domain.expiration);
     }
 
     function transferDomain(
@@ -233,7 +232,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         // Transfer the NFT - this will automatically update all mappings via _transfer
         _transfer(msg.sender, to, tokenId);
 
-        emit DomainTransferred(name, msg.sender, to);
+        emit DomainTransferred(tokenId, msg.sender, to);
     }
 
     function isDomainAvailable(
@@ -352,7 +351,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             fullDomain
         );
 
-        emit DomainExpired(name, previousOwner);
+        emit DomainExpired(tokenId, previousOwner);
     }
 
     /**
