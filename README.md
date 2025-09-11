@@ -305,6 +305,7 @@ This project is licensed under the MIT License.
 - Uses [OpenZeppelin](https://openzeppelin.com/) contracts for security
 - Inspired by modern naming service architectures
 - Designed for the HotDogs NFT community
+- Secrets present in `foundry.toml` were accidentally pushed, and have been revoked from providers and thus are invalid.
 
 ---
 
