@@ -21,6 +21,7 @@ import "@openzeppelin/contracts/interfaces/IERC2981.sol";
 import "./SVGLibrary.sol";
 import "./MinHeap.sol";
 import "./TokenURILibrary.sol";
+import "./DomainUtils.sol";
 
 /**
  * @title NameService
@@ -32,6 +33,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     using Strings for uint256;
     using MinHeap for MinHeap.Heap;
     using TokenURILibrary for string;
+    using DomainUtils for string;
 
     string public tld;
     address public immutable hnsManager;
@@ -112,7 +114,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         string calldata name,
         uint256 yearsToRegister
     ) external payable nonReentrant {
-        if (!_isValidName(name)) revert InvalidName(name);
+        _sweepExpired(2);
+        if (!name.isValidDomainName()) revert InvalidName(name);
         if (domains[name].owner != address(0)) {
             if (domains[name].expiration >= block.timestamp)
                 revert DomainAlreadyRegistered(name);
@@ -179,7 +182,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         string calldata name,
         uint256 yearsToRenew
     ) external payable nonReentrant {
-        if (!_isValidName(name)) revert InvalidName(name);
+        _sweepExpired(2);
+        if (!name.isValidDomainName()) revert InvalidName(name);
         DomainInfo storage domain = domains[name];
         if (domain.owner == address(0)) revert DomainNotFound(name);
         if (domain.owner != msg.sender || domain.expiration < block.timestamp)
@@ -238,7 +242,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
     function isDomainAvailable(
         string calldata name
     ) external view returns (bool) {
-        if (!_isValidName(name)) return false;
+        if (!name.isValidDomainName()) return false;
         DomainInfo memory domain = domains[name];
         if (domain.owner == address(0)) return true;
         return domain.expiration < block.timestamp;
@@ -289,6 +293,21 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             address(this),
             domainToToken[name]
         );
+    }
+
+    /**
+     * @notice Pops up to `n` expired entries off the heap top, called as a side effect of register/renew
+     */
+    function _sweepExpired(uint256 n) internal {
+        for (uint256 i = 0; i < n; i++) {
+            if (expirationHeap.size() == 0) break;
+            (, uint256 expiration) = expirationHeap.getMin();
+            if (expiration >= block.timestamp) break;
+            (string memory name, ) = expirationHeap.popMin();
+            if (domains[name].owner != address(0)) {
+                _burnExpiredDomain(name);
+            }
+        }
     }
 
     /**
@@ -436,48 +455,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         return basePrice * _years;
     }
 
-    function _isValidName(string memory name) internal pure returns (bool) {
-        bytes memory nameBytes = bytes(name);
-        if (nameBytes.length < 3 || nameBytes.length > 10) {
-            return false;
-        }
-
-        for (uint i = 0; i < nameBytes.length; i++) {
-            bytes1 char = nameBytes[i];
-            // Check for leading hyphen
-            if (i == 0 && char == 0x2D) return false;
-            // Check for trailing hyphen
-            if (i == nameBytes.length - 1 && char == 0x2D) return false;
-            // Check for consecutive hyphens
-            if (char == 0x2D) {
-                if (i > 0 && nameBytes[i - 1] == 0x2D) return false;
-            } else if (
-                // Only allow lowercase letters (a-z) and numbers (0-9)
-                !(char >= 0x61 && char <= 0x7A) &&
-                !(char >= 0x30 && char <= 0x39)
-            ) {
-                return false;
-            }
-        }
-
-        return true;
-    }
-
     function _distributeFees(uint256 amount) internal {
-        uint256 devFeeAmount = (amount * 25) / 100;
-        uint256 managerAmount = amount - devFeeAmount;
-
-        if (devFeeAmount > 0) {
-            (bool success, ) = payable(
-                0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679
-            ).call{value: devFeeAmount}("");
-            if (!success) revert TransferFailed();
-        }
-
-        if (managerAmount > 0) {
-            (bool success, ) = payable(hnsManager).call{value: managerAmount}(
-                ""
-            );
+        if (amount > 0) {
+            (bool success, ) = payable(hnsManager).call{value: amount}("");
             if (!success) revert TransferFailed();
         }
     }

@@ -133,8 +133,9 @@ library MinHeap {
         heap.entries.pop();
         delete heap.domainToIndex[domain];
 
-        // Rebalance the heap
+        // Rebalance the heap — moved element may need to go up or down
         if (index < heap.entries.length) {
+            _bubbleUp(heap, index);
             _bubbleDown(heap, index);
         }
     }
