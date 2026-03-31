@@ -49,11 +49,10 @@ contract NameServiceTest is Test {
     ) internal pure returns (uint256) {
         uint256 len = bytes(name).length;
         uint256 base;
-        if (len == 3) base = 0.012 ether;
-        else if (len == 4) base = 0.01 ether;
-        else if (len == 5) base = 0.008 ether;
-        else if (len == 6) base = 0.006 ether;
-        else base = 0.004 ether;
+        if (len == 3) base = 0.0049 ether;
+        else if (len == 4) base = 0.0034 ether;
+        else if (len == 5) base = 0.0024 ether;
+        else base = 0.0015 ether;
         return base * years_;
     }
 
@@ -628,32 +627,32 @@ contract NameServiceTest is Test {
 
     function testCalculatePrice_3Chars() public {
         uint256 price = nameService._calculatePrice("abc", 1);
-        assertEq(price, 0.012 ether);
+        assertEq(price, 0.0049 ether);
     }
 
     function testCalculatePrice_4Chars() public {
         uint256 price = nameService._calculatePrice("abcd", 1);
-        assertEq(price, 0.01 ether);
+        assertEq(price, 0.0034 ether);
     }
 
     function testCalculatePrice_5Chars() public {
         uint256 price = nameService._calculatePrice("abcde", 1);
-        assertEq(price, 0.008 ether);
+        assertEq(price, 0.0024 ether);
     }
 
     function testCalculatePrice_6Chars() public {
         uint256 price = nameService._calculatePrice("abcdef", 1);
-        assertEq(price, 0.006 ether);
+        assertEq(price, 0.0015 ether);
     }
 
     function testCalculatePrice_7PlusChars() public {
         uint256 price = nameService._calculatePrice("abcdefg", 1);
-        assertEq(price, 0.004 ether);
+        assertEq(price, 0.0015 ether);
     }
 
     function testCalculatePrice_MultipleYears() public {
         uint256 price = nameService._calculatePrice("test", 5);
-        assertEq(price, 0.01 ether * 5);
+        assertEq(price, 0.0034 ether * 5);
     }
 
     // ============ VALIDATION TESTS ============

@@ -446,11 +446,10 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         uint256 basePrice;
         uint256 length = bytes(name).length;
 
-        if (length == 3) basePrice = 0.012 ether;
-        else if (length == 4) basePrice = 0.01 ether;
-        else if (length == 5) basePrice = 0.008 ether;
-        else if (length == 6) basePrice = 0.006 ether;
-        else basePrice = 0.004 ether;
+        if (length == 3) basePrice = 0.0049 ether;
+        else if (length == 4) basePrice = 0.0034 ether;
+        else if (length == 5) basePrice = 0.0024 ether;
+        else basePrice = 0.0015 ether;
 
         return basePrice * _years;
     }

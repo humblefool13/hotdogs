@@ -12,7 +12,7 @@ A professional, gas-optimized decentralized naming system that provides unified 
 - **ERC721 NFT Integration** - Each domain is represented as a unique NFT with custom HotDogs design
 - **Unified Resolution** - Single interface to resolve domains across all TLDs
 - **Gas Optimized** - Efficient data structures and shared libraries reduce deployment and transaction costs
-- **Automatic Fee Distribution** - 25% to development team, 75% to manager contract
+- **Automatic Fee Distribution** - 100% to manager contract
 - **Main Domain Concept** - Users can set a primary domain for reverse lookup
 - **Global Reverse Lookup** - Find domains across all TLDs with one call
 - **Expiration Management** - Efficient heap-based system for domain expiration handling
@@ -60,13 +60,12 @@ NameService Contracts (per TLD)
 
 ## 💰 Pricing Structure
 
-| Domain Length | Price per Year | Example |
-|---------------|----------------|---------|
-| 3 characters  | 0.012 ETH      | `abc.hotdogs` |
-| 4 characters  | 0.01 ETH       | `test.hotdogs` |
-| 5 characters  | 0.008 ETH      | `hello.hotdogs` |
-| 6 characters  | 0.006 ETH      | `domain.hotdogs` |
-| 7+ characters | 0.004 ETH      | `mycompany.hotdogs` |
+| Domain Length | Price per Year | Example          |
+| ------------- | -------------- | ---------------- |
+| 3 characters  | 0.0049 ETH     | `abc.hotdogs`    |
+| 4 characters  | 0.0034 ETH     | `test.hotdogs`   |
+| 5 characters  | 0.0024 ETH     | `hello.hotdogs`  |
+| 6+ characters | 0.0015 ETH     | `domain.hotdogs` |
 
 ## 🔧 Smart Contracts
 
@@ -75,6 +74,7 @@ NameService Contracts (per TLD)
 **Purpose**: Central orchestrator managing TLD deployments and global resolution
 
 **Key Features**:
+
 - Deploys and manages SVG library
 - Creates new TLD contracts on-demand
 - Maintains global TLD registry
@@ -83,10 +83,11 @@ NameService Contracts (per TLD)
 - Handles main domain concept for reverse lookup
 
 **Key Functions**:
+
 ```solidity
 function addTLD(string calldata tld) external onlyOwner
 function resolve(string calldata name, string calldata tld) external view returns (address, uint256, address, uint256)
-function setMainDomain(string calldata domain) external
+function setMainDomain(string calldata name, string calldata tld) external
 function reverseLookup(address addr) external view returns (string memory)
 function withdrawFunds() external onlyOwner
 ```
@@ -96,14 +97,16 @@ function withdrawFunds() external onlyOwner
 **Purpose**: Individual TLD contract handling domain operations and NFT minting
 
 **Key Features**:
+
 - Domain registration and renewal (1-10 years)
 - ERC721 NFT minting with custom metadata
 - Domain ownership management and transfers
 - Automatic expiration handling with heap-based cleanup
-- Fee distribution (25% dev, 75% manager)
+- Fee distribution (100% manager)
 - EIP-2981 royalty support for marketplaces
 
 **Key Functions**:
+
 ```solidity
 function register(string calldata name, uint256 yearsToRegister) external payable
 function renew(string calldata name, uint256 yearsToRenew) external payable
@@ -118,6 +121,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 **Purpose**: Shared SVG generation for consistent NFT artwork
 
 **Key Features**:
+
 - Generates HotDogs-themed SVG images
 - Reduces contract size and gas costs
 - Provides consistent visual design across all TLDs
@@ -128,6 +132,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 **Purpose**: Domain validation and parsing utilities
 
 **Key Features**:
+
 - TLD validation (3-10 lowercase letters)
 - Domain name validation (3-10 chars, alphanumeric + hyphens)
 - Domain parsing (extract name/TLD from full domain)
@@ -138,6 +143,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 **Purpose**: Metadata generation for NFT marketplaces
 
 **Key Features**:
+
 - Generates ERC721-compliant token URIs
 - Base64 encoding for SVG images
 - Rich metadata with domain information
@@ -148,6 +154,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 **Purpose**: Efficient expiration management system
 
 **Key Features**:
+
 - O(log n) insertions and updates
 - O(1) access to earliest expiration
 - Efficient domain removal and updates
@@ -158,6 +165,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 ### Basic Operations
 
 #### 1. Adding a New TLD
+
 ```solidity
 // Only contract owner can add TLDs
 HNSManager manager = HNSManager(managerAddress);
@@ -165,67 +173,77 @@ manager.addTLD("rise");
 ```
 
 #### 2. Registering a Domain
+
 ```solidity
-// Register "alice.hotdogs" for 2 years
+// Register "alice.hotdogs" for 2 years (5-char name: 0.0024 ETH/year)
 NameService nameService = NameService(tldContractAddress);
-nameService.register{value: 0.02 ether}("alice", 2);
+nameService.register{value: 0.0048 ether}("alice", 2);
 ```
 
 #### 3. Renewing a Domain
+
 ```solidity
-// Renew "alice.hotdogs" for 1 additional year
-nameService.renew{value: 0.01 ether}("alice", 1);
+// Renew "alice.hotdogs" for 1 additional year (5-char name: 0.0024 ETH/year)
+nameService.renew{value: 0.0024 ether}("alice", 1);
 ```
 
 #### 4. Transferring Domain Ownership
+
 ```solidity
 // Transfer domain to new owner
 nameService.transferDomain("alice", newOwnerAddress);
 ```
 
 #### 5. Setting Main Domain
+
 ```solidity
 // Set primary domain for reverse lookup
-manager.setMainDomain("alice.hotdogs");
+manager.setMainDomain("alice", "hotdogs");
 ```
 
 ### Advanced Operations
 
 #### Global Reverse Lookup
+
 ```solidity
 // Get main domain or first available domain for an address
 string memory domain = manager.reverseLookup(userAddress);
 ```
 
 #### Domain Resolution
+
 ```solidity
 // Get complete domain information
-(address owner, uint256 expiration, address nftAddress, uint256 tokenId) = 
+(address owner, uint256 expiration, address nftAddress, uint256 tokenId) =
     manager.resolve("alice", "hotdogs");
 ```
 
 #### Checking Domain Availability
+
 ```solidity
 // Check if domain is available for registration
 bool available = nameService.isDomainAvailable("alice");
 ```
 
 #### Getting Domain Information
+
 ```solidity
 // Get detailed domain information
-(address owner, uint256 expiration, uint256 registrationDate, uint256 renewalCount) = 
+(address owner, uint256 expiration, uint256 registrationDate, uint256 renewalCount) =
     nameService.getDomainInfo("alice");
 ```
 
 ### NFT Operations
 
 #### Transferring Domain NFT
+
 ```solidity
 // Transfer the NFT (automatically updates domain ownership)
 IERC721(nameServiceAddress).transferFrom(from, to, tokenId);
 ```
 
 #### Checking Royalty Information
+
 ```solidity
 // Get royalty information for marketplace integration
 (address receiver, uint256 royaltyAmount) = nameService.royaltyInfo(tokenId, salePrice);
@@ -234,18 +252,21 @@ IERC721(nameServiceAddress).transferFrom(from, to, tokenId);
 ## 🔒 Security Features
 
 ### Access Control
+
 - **Ownable Contracts** - Restricted access to management functions
 - **Role-based Permissions** - Only authorized contracts can update mappings
 - **Input Validation** - Comprehensive domain name and TLD validation
 - **Reentrancy Protection** - Safe external calls with `nonReentrant` modifier
 
 ### Error Handling
+
 - **Custom Errors** - Gas-optimized error handling instead of require statements
 - **Input Sanitization** - Domain name validation prevents malicious inputs
 - **Overflow Protection** - Safe math operations throughout
 - **State Validation** - Comprehensive checks before state changes
 
 ### Contract Security
+
 - **Immutable References** - Critical addresses are immutable after deployment
 - **Bounded Operations** - Limited batch operations to prevent gas bombs
 - **Expiration Handling** - Automatic cleanup prevents storage bloat
@@ -254,12 +275,14 @@ IERC721(nameServiceAddress).transferFrom(from, to, tokenId);
 ## ⚡ Gas Optimization
 
 ### Architecture Optimizations
+
 - **Shared Libraries** - SVG and utility libraries reduce contract size
 - **Efficient Data Structures** - MinHeap for O(log n) expiration management
 - **Minimal Storage Operations** - Optimized mappings and arrays
 - **Batch Operations** - Bounded cleanup operations
 
 ### Code Optimizations
+
 - **Custom Errors** - More gas-efficient than require statements
 - **Pure Functions** - Library functions use minimal gas
 - **Packed Structs** - Optimized struct layouts
@@ -269,24 +292,24 @@ IERC721(nameServiceAddress).transferFrom(from, to, tokenId);
 
 ### HNSManager Contract
 
-| Function | Visibility | Description |
-|----------|------------|-------------|
-| `addTLD(string)` | external | Deploy new TLD contract |
-| `resolve(string, string)` | external | Resolve domain to owner info |
-| `setMainDomain(string)` | external | Set primary domain for address |
-| `reverseLookup(address)` | external | Get main domain for address |
-| `withdrawFunds()` | external | Withdraw accumulated fees |
+| Function                  | Visibility | Description                    |
+| ------------------------- | ---------- | ------------------------------ |
+| `addTLD(string)`          | external   | Deploy new TLD contract        |
+| `resolve(string, string)` | external   | Resolve domain to owner info   |
+| `setMainDomain(string, string)` | external | Set primary domain for address |
+| `reverseLookup(address)`  | external   | Get main domain for address    |
+| `withdrawFunds()`         | external   | Withdraw accumulated fees      |
 
 ### NameService Contract
 
-| Function | Visibility | Description |
-|----------|------------|-------------|
-| `register(string, uint256)` | external payable | Register new domain |
-| `renew(string, uint256)` | external payable | Renew domain registration |
-| `transferDomain(string, address)` | external | Transfer domain ownership |
-| `isDomainAvailable(string)` | external view | Check domain availability |
-| `getDomainInfo(string)` | external view | Get domain details |
-| `cleanupExpiredDomains(uint256)` | external | Clean up expired domains |
+| Function                          | Visibility       | Description               |
+| --------------------------------- | ---------------- | ------------------------- |
+| `register(string, uint256)`       | external payable | Register new domain       |
+| `renew(string, uint256)`          | external payable | Renew domain registration |
+| `transferDomain(string, address)` | external         | Transfer domain ownership |
+| `isDomainAvailable(string)`       | external view    | Check domain availability |
+| `getDomainInfo(string)`           | external view    | Get domain details        |
+| `cleanupExpiredDomains(uint256)`  | external         | Clean up expired domains  |
 
 ## 📄 License
 

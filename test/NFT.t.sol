@@ -102,11 +102,10 @@ contract NameServiceNFTTest is Test {
     ) internal pure returns (uint256) {
         uint256 len = bytes(name).length;
         uint256 base;
-        if (len == 3) base = 0.012 ether;
-        else if (len == 4) base = 0.01 ether;
-        else if (len == 5) base = 0.008 ether;
-        else if (len == 6) base = 0.006 ether;
-        else base = 0.004 ether;
+        if (len == 3) base = 0.0049 ether;
+        else if (len == 4) base = 0.0034 ether;
+        else if (len == 5) base = 0.0024 ether;
+        else base = 0.0015 ether;
         return base * years_;
     }
 

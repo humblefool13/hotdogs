@@ -21,8 +21,6 @@ contract HNSTest is Test {
     address public user3 = address(0x3);
     address public user4 = address(0x4);
     address public user5 = address(0x5);
-    address public devFeeRecipient = 0x4E08fF4CE98523F7B1299AAE51F515BA64BAf679;
-
     string public constant TLD1 = "hotdogs";
     string public constant TLD2 = "rise";
     string public constant TLD3 = "test";
@@ -57,11 +55,10 @@ contract HNSTest is Test {
     ) internal pure returns (uint256) {
         uint256 len = bytes(name).length;
         uint256 base;
-        if (len == 3) base = 0.012 ether;
-        else if (len == 4) base = 0.01 ether;
-        else if (len == 5) base = 0.008 ether;
-        else if (len == 6) base = 0.006 ether;
-        else base = 0.004 ether;
+        if (len == 3) base = 0.0049 ether;
+        else if (len == 4) base = 0.0034 ether;
+        else if (len == 5) base = 0.0024 ether;
+        else base = 0.0015 ether;
         return base * years_;
     }
 
@@ -535,14 +532,14 @@ contract HNSTest is Test {
 
     function testPricingConsistency() public {
         // Test pricing across different name lengths
-        assertEq(nameService1._calculatePrice("abc", 1), 0.012 ether);
-        assertEq(nameService1._calculatePrice("abcd", 1), 0.01 ether);
-        assertEq(nameService1._calculatePrice("abcde", 1), 0.008 ether);
-        assertEq(nameService1._calculatePrice("abcdef", 1), 0.006 ether);
-        assertEq(nameService1._calculatePrice("abcdefg", 1), 0.004 ether);
+        assertEq(nameService1._calculatePrice("abc", 1), 0.0049 ether);
+        assertEq(nameService1._calculatePrice("abcd", 1), 0.0034 ether);
+        assertEq(nameService1._calculatePrice("abcde", 1), 0.0024 ether);
+        assertEq(nameService1._calculatePrice("abcdef", 1), 0.0015 ether);
+        assertEq(nameService1._calculatePrice("abcdefg", 1), 0.0015 ether);
 
         // Test multiple years
-        assertEq(nameService1._calculatePrice("test", 5), 0.01 ether * 5);
+        assertEq(nameService1._calculatePrice("test", 5), 0.0034 ether * 5);
     }
 
     function testEventEmission() public {
