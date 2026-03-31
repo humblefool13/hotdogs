@@ -46,22 +46,17 @@ library DomainUtils {
         if (nameBytes.length < 3 || nameBytes.length > 10) {
             return false;
         }
-        bool hyphen = false;
+        bool hasHyphen = false;
         for (uint i = 0; i < nameBytes.length; i++) {
             bytes1 char = nameBytes[i];
 
-            // Check for leading hyphen
-            if (i == 0 && char == 0x2D) return false;
-            // Check for trailing hyphen
-            if (i == nameBytes.length - 1 && char == 0x2D) return false;
-            // Check for multiple hyphens
             if (char == 0x2D) {
-                if (hyphen) return false;
-                hyphen = true;
+                // No leading/trailing hyphen, only one hyphen total
+                if (i == 0 || i == nameBytes.length - 1) return false;
+                if (hasHyphen) return false;
+                hasHyphen = true;
             } else if (
-                // Allow lowercase letters (a-z)
                 !(char >= 0x61 && char <= 0x7A) &&
-                // Allow numbers (0-9)
                 !(char >= 0x30 && char <= 0x39)
             ) {
                 return false;

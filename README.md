@@ -134,7 +134,7 @@ function cleanupExpiredDomains(uint256 maxDomains) external
 **Key Features**:
 
 - TLD validation (3-10 lowercase letters)
-- Domain name validation (3-10 chars, alphanumeric + hyphens)
+- Domain name validation (3-10 chars, alphanumeric + one hyphen in the middle)
 - Domain parsing (extract name/TLD from full domain)
 - Input sanitization and format checking
 

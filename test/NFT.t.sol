@@ -67,19 +67,18 @@ contract NameServiceNFTTest is Test {
         bool approved
     );
     event DomainRegistered(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
-        uint256 tokenId,
         uint256 expiration
     );
     event DomainTransferred(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed from,
         address indexed to
     );
-    event DomainExpired(string indexed name, address indexed previousOwner);
+    event DomainExpired(uint256 indexed tokenId, address indexed previousOwner);
     event DomainRenewed(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
         uint256 newExpiration
     );
@@ -115,7 +114,7 @@ contract NameServiceNFTTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit Transfer(address(0), user, 1);
-        emit DomainRegistered("test", user, 1, 0);
+        emit DomainRegistered(1, user, 0);
         nameService.register{value: _price("test", 1)}("test", 1);
     }
 
@@ -155,7 +154,7 @@ contract NameServiceNFTTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit Transfer(user, user2, tokenId);
-        emit DomainTransferred("test", user, user2);
+        emit DomainTransferred(tokenId, user, user2);
         nameService.transferFrom(user, user2, tokenId);
     }
 
@@ -323,7 +322,7 @@ contract NameServiceNFTTest is Test {
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
         emit Transfer(user, address(0), tokenId);
-        emit DomainExpired("test", user);
+        emit DomainExpired(tokenId, user);
         nameService.cleanupExpiredDomains(1);
     }
 
@@ -1384,9 +1383,10 @@ contract NameServiceNFTTest is Test {
         vm.prank(user);
         nameService.register{value: _price("test", 1)}("test", 1);
 
+        uint256 tokenId = nameService.domainToToken("test");
         vm.prank(user);
         vm.expectEmit(true, true, false, false);
-        emit DomainRenewed("test", user, 0); // We can't predict exact expiration
+        emit DomainRenewed(tokenId, user, 0); // We can't predict exact expiration
         nameService.renew{value: _price("test", 1)}("test", 1);
     }
 

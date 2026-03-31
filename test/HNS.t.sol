@@ -27,20 +27,19 @@ contract HNSTest is Test {
 
     uint256 public constant YEAR = 365 days;
 
-    // Event definitions for testing
+    // Event definitions for testing (must match NameService contract exactly)
     event DomainRegistered(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
-        uint256 tokenId,
         uint256 expiration
     );
     event DomainRenewed(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
         uint256 newExpiration
     );
     event DomainTransferred(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed from,
         address indexed to
     );
@@ -546,25 +545,22 @@ contract HNSTest is Test {
         // Test domain registration event
         vm.startPrank(user1);
         vm.expectEmit(true, true, false, false);
-        emit DomainRegistered(
-            "eventtest",
-            user1,
-            1,
-            block.timestamp + 365 days
-        );
+        emit DomainRegistered(1, user1, 0);
         nameService1.register{value: _price("eventtest", 1)}("eventtest", 1);
         vm.stopPrank();
+
+        uint256 tokenId = nameService1.domainToToken("eventtest");
 
         // Test domain renewal event
         vm.prank(user1);
         vm.expectEmit(true, true, false, false);
-        emit DomainRenewed("eventtest", user1, block.timestamp + 365 days);
+        emit DomainRenewed(tokenId, user1, 0);
         nameService1.renew{value: _price("eventtest", 1)}("eventtest", 1);
 
         // Test domain transfer event
         vm.prank(user1);
         vm.expectEmit(true, true, true, false);
-        emit DomainTransferred("eventtest", user1, user2);
+        emit DomainTransferred(tokenId, user1, user2);
         nameService1.transferDomain("eventtest", user2);
     }
 

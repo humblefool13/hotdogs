@@ -14,24 +14,23 @@ contract NameServiceTest is Test {
     address public user3 = address(0x789);
     string public constant TLD = "hotdogs";
 
-    // Event definitions for testing
+    // Event definitions for testing (must match NameService contract exactly)
     event DomainRegistered(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
-        uint256 tokenId,
         uint256 expiration
     );
     event DomainRenewed(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed owner,
         uint256 newExpiration
     );
     event DomainTransferred(
-        string indexed name,
+        uint256 indexed tokenId,
         address indexed from,
         address indexed to
     );
-    event DomainExpired(string indexed name, address indexed previousOwner);
+    event DomainExpired(uint256 indexed tokenId, address indexed previousOwner);
     event ExpiredDomainsProcessed(uint256 cleaned);
 
     function setUp() public {
@@ -70,7 +69,7 @@ contract NameServiceTest is Test {
         vm.startPrank(user);
         uint256 price = _price("test", 1);
         vm.expectEmit(true, true, false, false);
-        emit DomainRegistered("test", user, 1, 0);
+        emit DomainRegistered(1, user, 0);
         nameService.register{value: price}("test", 1);
         vm.stopPrank();
 
@@ -204,7 +203,7 @@ contract NameServiceTest is Test {
         vm.startPrank(user);
         uint256 price = _price("test", 1);
         vm.expectEmit(true, true, false, false);
-        emit DomainRegistered("test", user, 1, 0);
+        emit DomainRegistered(1, user, 0);
         nameService.register{value: price}("test", 1);
         vm.stopPrank();
     }
@@ -259,7 +258,7 @@ contract NameServiceTest is Test {
 
         vm.prank(user);
         vm.expectEmit(true, true, false, true);
-        emit DomainRenewed("test", user, beforeExp + 365 days);
+        emit DomainRenewed(1, user, beforeExp + 365 days);
         nameService.renew{value: _price("test", 1)}("test", 1);
 
         uint256 afterExp = nameService.getDomainExpiration("test");
@@ -311,10 +310,11 @@ contract NameServiceTest is Test {
         vm.prank(user);
         nameService.register{value: _price("test", 1)}("test", 1);
 
+        // After expiry, the domain is swept/burned on next interaction, so owner becomes address(0)
         vm.warp(block.timestamp + 2 * 365 days);
         vm.prank(user);
         vm.expectRevert(
-            abi.encodeWithSelector(NameService.Unauthorized.selector)
+            abi.encodeWithSelector(NameService.DomainNotFound.selector, "test")
         );
         nameService.renew{value: _price("test", 1)}("test", 1);
     }
@@ -382,7 +382,7 @@ contract NameServiceTest is Test {
 
         vm.prank(user);
         vm.expectEmit(true, true, true, true);
-        emit DomainTransferred("test", user, user2);
+        emit DomainTransferred(tokenId, user, user2);
         nameService.transferDomain("test", user2);
 
         assertEq(nameService.ownerOf(tokenId), user2);
@@ -432,10 +432,11 @@ contract NameServiceTest is Test {
     function testTransferDomain_EventEmitted() public {
         vm.prank(user);
         nameService.register{value: _price("test", 1)}("test", 1);
+        uint256 tokenId = nameService.domainToToken("test");
 
         vm.prank(user);
         vm.expectEmit(true, true, true, false);
-        emit DomainTransferred("test", user, user2);
+        emit DomainTransferred(tokenId, user, user2);
         nameService.transferDomain("test", user2);
     }
 
@@ -664,7 +665,6 @@ contract NameServiceTest is Test {
         nameService.register{value: _price("test", 1)}("test", 1);
         nameService.register{value: _price("test123", 1)}("test123", 1);
         nameService.register{value: _price("test-name", 1)}("test-name", 1);
-        nameService.register{value: _price("a-b-c", 1)}("a-b-c", 1);
         vm.stopPrank();
 
         // All should be registered successfully
@@ -672,7 +672,6 @@ contract NameServiceTest is Test {
         assertEq(nameService.getDomainOwner("test"), user);
         assertEq(nameService.getDomainOwner("test123"), user);
         assertEq(nameService.getDomainOwner("test-name"), user);
-        assertEq(nameService.getDomainOwner("a-b-c"), user);
     }
 
     function testIsValidName_Invalid() public {
@@ -703,6 +702,10 @@ contract NameServiceTest is Test {
 
         vm.expectRevert();
         nameService.register{value: _price("TEST", 1)}("TEST", 1);
+
+        // Multiple hyphens not allowed
+        vm.expectRevert();
+        nameService.register{value: _price("a-b-c", 1)}("a-b-c", 1);
 
         vm.stopPrank();
     }
