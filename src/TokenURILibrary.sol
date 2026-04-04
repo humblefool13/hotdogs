@@ -43,7 +43,6 @@ library TokenURILibrary {
     ) external pure returns (string memory) {
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
 
-        // Encode SVG to base64
         string memory imageData = Base64.encode(bytes(svg));
 
         // Build metadata JSON
@@ -55,9 +54,6 @@ library TokenURILibrary {
                         fullDomain,
                         '",',
                         '"description":"A domain on the HotDogs Naming Service.",',
-                        '"image_data": "',
-                        svg,
-                        '",',
                         '"image":"data:image/svg+xml;base64,',
                         imageData,
                         '",',
