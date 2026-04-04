@@ -153,21 +153,8 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         // Add to expiration heap for efficient management
         expirationHeap.insert(name, expiration);
 
-        // External calls after state updates
-
-        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
+        // Mint NFT
         _safeMint(msg.sender, tokenId);
-        _setTokenURI(
-            tokenId,
-            TokenURILibrary.buildTokenURI(
-                name,
-                tld,
-                svg,
-                domainInfo.expiration,
-                domainInfo.registrationDate,
-                domainInfo.renewalCount
-            )
-        );
 
         // Add to manager's address mapping
         string memory fullDomain = string(abi.encodePacked(name, ".", tld));
@@ -201,24 +188,9 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         // Update expiration in heap
         expirationHeap.updateExpiration(name, domain.expiration);
 
-        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
-
-        uint256 tokenId = domainToToken[name];
-        _setTokenURI(
-            tokenId,
-            TokenURILibrary.buildTokenURI(
-                name,
-                tld,
-                svg,
-                domain.expiration,
-                domain.registrationDate,
-                domain.renewalCount
-            )
-        );
-
         _distributeFees(msg.value);
 
-        emit DomainRenewed(tokenId, msg.sender, domain.expiration);
+        emit DomainRenewed(domainToToken[name], msg.sender, domain.expiration);
     }
 
     function transferDomain(
@@ -293,6 +265,24 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             address(this),
             domainToToken[name]
         );
+    }
+
+    function tokenURI(
+        uint256 tokenId
+    ) public view override returns (string memory) {
+        if (_ownerOf(tokenId) == address(0)) revert NoToken();
+        string memory name = tokenToDomain[tokenId];
+        DomainInfo memory domain = domains[name];
+        string memory svg = SVGLibrary(svgLibrary).generateSVG(name, tld);
+        return
+            TokenURILibrary.buildTokenURI(
+                name,
+                tld,
+                svg,
+                domain.expiration,
+                domain.registrationDate,
+                domain.renewalCount
+            );
     }
 
     /**
