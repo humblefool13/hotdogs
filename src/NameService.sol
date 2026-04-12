@@ -12,6 +12,7 @@ https://t.me/humblefool13
 
 pragma solidity ^0.8.20;
 
+import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721URIStorage.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 import "@openzeppelin/contracts/utils/Strings.sol";
@@ -97,7 +98,7 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
         address _svgLibrary
     )
         ERC721(
-            string(abi.encodePacked("HotDogs Naming Service", " - ", _tld)),
+            string(abi.encodePacked("HNS ", "(.", _tld, ")")),
             string(abi.encodePacked(TokenURILibrary._toUpper(_tld)))
         )
     {
@@ -470,6 +471,10 @@ contract NameService is ERC721URIStorage, ReentrancyGuard, IERC2981 {
             domain.registrationDate,
             domain.renewalCount
         );
+    }
+
+    function owner() external view returns (address) {
+        return Ownable(hnsManager).owner();
     }
 
     // EIP-2981 Royalty support
